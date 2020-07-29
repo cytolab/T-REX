@@ -12,6 +12,20 @@ editor_options:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
+# uncomment lines below to install packages
+# install.packages("devtools", repos = "http://cran.us.r-project.org")
+# devtools::install_github("cytolab/mem")
+# install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+# install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+# install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+# install.packages("uwot", repos = "http://cran.us.r-project.org")
+# install.packages("dbscan", repos = "http://cran.us.r-project.org")
+# if (!requireNamespace("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+# BiocManager::install("flowCore")
+# BiocManager::install("Biobase")
+
+
 # load packages
 library(flowCore)
 library(uwot)
@@ -19,6 +33,8 @@ library(FNN)
 library(ggplot2)
 library(dbscan)
 library(MEM)
+library(tidyverse)
+library(Biobase)
 
 # set working directory 
 setwd(paste(getwd(),"/data_files/", sep = ""))
@@ -26,8 +42,8 @@ setwd(paste(getwd(),"/data_files/", sep = ""))
 # setup sample and T-REX info
 output_filename = "_T-REX"
 sample_type = "COV"
-sample_id = "001"
-time_comparison = "0v7" 
+sample_id = "35"
+time_comparison = "0v4" 
 kvalue = 60
 
 # look at files
@@ -125,7 +141,8 @@ final_trex_plot <-
   ) +
   theme_bw() + theme(panel.grid.major = element_blank(),
                      panel.grid.minor = element_blank()) +
-  labs (x = "UMAP1", y = "UMAP2", title = paste(sample_type,"_",sample_id,"_",time_comparison," - Percent Change",sep = "")) + coord_fixed(ratio = graphical.ratio) + theme(legend.title = element_blank()) 
+  labs (x = "UMAP1", y = "UMAP2", title = paste(sample_type,"_",sample_id,"_",time_comparison," - Percent Change",sep = "")) + coord_fixed(ratio = graphical.ratio) + theme(legend.title = element_blank()) + 
+  labs(caption = "Data from Brodin et al., medRxiv 2020")
 
 print(final_trex_plot)
 dev.off()
@@ -133,8 +150,9 @@ dev.off()
 final_trex_plot
 ```
   
-```{r plot}  
-  #plot.to.output<-list() 
+```{r trex_results}  
+# uncomment lines below to plot heat on markers on umap axes
+#plot.to.output<-list() 
 # for (i in 1:ncol(umap.input)){
 #   color.plot <- data.frame(x = umap.data[,1], y = umap.data[,2], col = umap.input[,c(i)])
 #   order.plot <- color.plot[order(color.plot$col),]
@@ -143,9 +161,8 @@ final_trex_plot
 #     labs (x = "UMAP1", y = "UMAP2", col = colnames(umap.input)[i])+
 #   scale_color_gradientn(
 #     colours = colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(50)))}
-#   
-#cowplot::plot_grid(plotlist = plot.to.output)
 
+# calculate degree of change and direction of change for individual pairwise comparison
 all.data$status <- trex.plot$cuts
 sample.table <- data.frame(sample_type,sample_id,time_comparison,total_cells = nrow(umap.data))
 sample.table[,c(5:9)]<-summary(trex.plot$cuts)
@@ -158,17 +175,15 @@ write.csv(sample.table, paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H
 ```
 
 ```{r clustering}
+# use DBSCAN to cluster on regions of great change (5th and 95 percentiles of change)
 regions.of.interest <- all.data %>%
   dplyr::filter(status == "[0,5]" | status == "(95,100]") 
-
 regions.of.interest.umap = cbind(regions.of.interest$UMAP1,regions.of.interest$UMAP2)
 a = dbscan::dbscan(regions.of.interest.umap, eps = 0.3,minPts = 50)
 cluster = a$cluster 
-
 track.data = cbind(regions.of.interest,cluster)
 track.data <- track.data %>%
   filter(cluster!=0)
-
 track.data$cluster[which(track.data$status=="[0,5]")]<-paste0(track.data$cluster[which(track.data$status=="[0,5]")],"05")
 track.data$cluster[which(track.data$status=="(95,100]")]<-paste0(track.data$cluster[which(track.data$status=="(95,100]")],"95")
 track.data$cluster<-as.numeric(track.data$cluster)
@@ -180,15 +195,15 @@ dbscan_plot <- ggplot(data.frame(x = track.data$UMAP1,
   geom_point(aes(x=x, y=y, color=col),cex = 1.5) + 
   guides(colour = guide_legend(override.aes = list(size=5), nrow = 13)) +
   labs(x = "UMAP 1", y = "UMAP 2",title = "DBSCAN Clusters (5th & 95th percentiles)", 
-       color = "DBSCAN Cluster") + theme_bw() + theme(legend.title = element_blank()) 
+       color = "DBSCAN Cluster") + theme_bw() + theme(legend.title = element_blank()) + 
+  labs(caption = "Data from Brodin et al., medRxiv 2020")
 print(dbscan_plot)
 dev.off()
 dbscan_plot
-
-
 ```
 
 ```{r MEM}
+# run MEM on DBSCAN clusters split by 95th and 5th percentiles of change in KNN region
 MEM.data = track.data[,c(3,9:14,19:31,33:54,57:61,ncol(track.data))]
 MEM.data = MEM.data[order(MEM.data$cluster),]
 MEM.values.KNN = MEM(MEM.data, transform = TRUE, cofactor = 5,
@@ -196,7 +211,6 @@ MEM.values.KNN = MEM(MEM.data, transform = TRUE, cofactor = 5,
                      new.marker.names = "none", file.is.clust = FALSE, add.fileID = FALSE, IQR.thresh = NULL)
 build.heatmaps(MEM.values.KNN, cluster.MEM = "none", cluster.medians = "none",
                display.thresh = 1, newWindow.heatmaps=TRUE, output.files = TRUE, labels = FALSE)
-
 all.clusters = split(track.data,as.factor(track.data$cluster))
 counts.total  <- sapply(all.clusters, NROW)
 counts.5<-vector()
@@ -207,19 +221,15 @@ cluster.data = as.data.frame(counts.total)
 colnames(cluster.data)<- "total_counts"
 cluster.data$counts_5<-counts.5
 cluster.data$counts_95<-counts.95
-
 write.csv(cluster.data,paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S")," DBSCAN_cluster_percentiles_counts_MEM.csv",sep =""))
-
 ```
 
 
-```{r create report}
-
+```{r export_FCS_files}
+# export new FCS files with sampled data, percent change, and umap axes
 to.export = cbind(my.sampled.data,umap.data,percent_change)
 desc = colnames(to.export)[-c(ncol(my.sampled.data))]
 colnames(to.export)[1:ncol(my.sampled.data)]<-orig.names
-
-# export 
 separate.fcs.files = split(to.export,to.export$`File_ID`)
 for (i in 1:length(separate.fcs.files)){
 reduce.data = subset(separate.fcs.files[[i]], select=-c(`File_ID`))
