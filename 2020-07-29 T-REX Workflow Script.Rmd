@@ -12,6 +12,8 @@ editor_options:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
+# Data from Brodin lab in 2020 et al., medRxiv 2020 (https://doi.org/10.1101/2020.06.03.20121582)
+
 # uncomment lines below to install packages
 # install.packages("devtools", repos = "http://cran.us.r-project.org")
 # devtools::install_github("cytolab/mem")
@@ -142,7 +144,7 @@ final_trex_plot <-
   theme_bw() + theme(panel.grid.major = element_blank(),
                      panel.grid.minor = element_blank()) +
   labs (x = "UMAP1", y = "UMAP2", title = paste(sample_type,"_",sample_id,"_",time_comparison," - Percent Change",sep = "")) + coord_fixed(ratio = graphical.ratio) + theme(legend.title = element_blank()) + 
-  labs(caption = "Data from Brodin et al., medRxiv 2020")
+  labs(caption = "Data from Brodin lab in 2020 et al., medRxiv 2020")
 
 print(final_trex_plot)
 dev.off()
@@ -196,7 +198,7 @@ dbscan_plot <- ggplot(data.frame(x = track.data$UMAP1,
   guides(colour = guide_legend(override.aes = list(size=5), nrow = 13)) +
   labs(x = "UMAP 1", y = "UMAP 2",title = "DBSCAN Clusters (5th & 95th percentiles)", 
        color = "DBSCAN Cluster") + theme_bw() + theme(legend.title = element_blank()) + 
-  labs(caption = "Data from Brodin et al., medRxiv 2020")
+  labs(caption = "Data from Brodin lab in 2020 et al., medRxiv 2020")
 print(dbscan_plot)
 dev.off()
 dbscan_plot
