@@ -1,4 +1,7 @@
-# T-REX
+# T-REX (Tracking Responders Expanding)
+
+### T-REX pre-print available via bioRxiv:
+#### https://www.biorxiv.org/content/10.1101/2020.07.31.190454v1.full
 
 T-REX is an algorithm developed in R for machine learning.  The T-REX acronym stands for Tracking Responders Expanding.  
 
