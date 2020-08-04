@@ -7,6 +7,10 @@ T-REX is an algorithm developed in R for machine learning.  The T-REX acronym st
 
 T-REX takes as input two flow cytometry files that represent a pair of sampling times from one individual person.  As output, T-REX creates a UMAP analysis of an equal sampling of cells from the two files and then identifies hotspots of cells in phenotypic regions that are the most different between the two files.  
 
+### Figure 1:
+
+![alt text](https://www.biorxiv.org/content/biorxiv/early/2020/08/01/2020.07.31.190454/F1.large.jpg)
+
 In the context of immune monitoring, the focus of T-REX on regions of great change between two sampling times can reveal disease-specific immune cells reacting to a virus.  T-REX has been tested on mass cytometry and spectral flow cytometry data from individuals with COVID-19, rhinovirus, melanoma, and leukemia.  For the associated scientific manuscript, please see Barone and Paul et al., bioRxiv 2020:
 
 Unsupervised machine learning reveals key immune cell subsets in COVID-19, rhinovirus infection, and cancer therapy
