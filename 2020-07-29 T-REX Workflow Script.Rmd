@@ -242,7 +242,7 @@ metadata$minRange <- apply(mat.input, 2, min)
 metadata$maxRange <- apply(mat.input, 2, max)
 input.flowframe <- new("flowFrame", exprs=mat.input,parameters = AnnotatedDataFrame(metadata))  
 newname  = str_remove(data.files[i], ".fcs")
-new.filename = paste0("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_",newname,"_RAPID.fcs",sep="")
+new.filename = paste0("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_",newname,"_T-REX.fcs",sep="")
 write.FCS(input.flowframe,filename = new.filename)
 print(paste("FCS file ",i," done", sep = ""))}
 
