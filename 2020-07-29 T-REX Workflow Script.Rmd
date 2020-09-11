@@ -169,7 +169,7 @@ final_trex_plot
 all.data$status <- trex.plot$cuts
 sample.table <- data.frame(sample_type,sample_id,time_comparison,total_cells = nrow(umap.data))
 sample.table[,c(5:9)]<-summary(trex.plot$cuts)
-colnames(sample.table)[5:9]<-c( "(15,85]","(5,15]","[0,5]","(85,95]","(95,100]")
+colnames(sample.table)[5:9]<-c( "[15,85)", "[5,15)", "[0,5)", "[85,95)", "[95,100]")
 percent = 100*(summary(trex.plot$cuts)/nrow(umap.data))
 sample.table$degree_of_change = (sum(percent[3]+percent[5]))
 sample.table$direction_of_change = (summary(trex.plot$cuts)[5]-summary(trex.plot$cuts)[3]) / (summary(trex.plot$cuts)[5]+summary(trex.plot$cuts)[3])
@@ -181,15 +181,15 @@ print(sample.table)
 ```{r clustering}
 # use DBSCAN to cluster on regions of great change (5th and 95 percentiles of change)
 regions.of.interest <- all.data %>%
-  dplyr::filter(status == "[0,5]" | status == "(95,100]") 
+  dplyr::filter(status == "[0,5)" | status == "[95,100]") 
 regions.of.interest.umap = cbind(regions.of.interest$UMAP1,regions.of.interest$UMAP2)
 a = dbscan::dbscan(regions.of.interest.umap, eps = 0.3,minPts = 50)
 cluster = a$cluster 
 track.data = cbind(regions.of.interest,cluster)
 track.data <- track.data %>%
   filter(cluster!=0)
-track.data$cluster[which(track.data$status=="[0,5]")]<-paste0(track.data$cluster[which(track.data$status=="[0,5]")],"05")
-track.data$cluster[which(track.data$status=="(95,100]")]<-paste0(track.data$cluster[which(track.data$status=="(95,100]")],"95")
+track.data$cluster[which(track.data$status=="[0,5)")]<-paste0(track.data$cluster[which(track.data$status=="[0,)]")],"05")
+track.data$cluster[which(track.data$status=="[95,100]")]<-paste0(track.data$cluster[which(track.data$status=="[95,100]")],"95")
 track.data$cluster<-as.numeric(track.data$cluster)
 
 png(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S")," DBSCAN_plot.png",sep =""),res = 200, width = 1000, height = 1000)
