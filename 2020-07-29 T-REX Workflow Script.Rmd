@@ -111,9 +111,9 @@ graphical.ratio <- (range[1] / range[2])
 test.round = round(percent_change)
 trex.plot <-
   data.frame(x = umap.data[, 1], y = umap.data[, 2], col = test.round)
-trex.plot$cuts = cut(trex.plot$col, c(0, 5, 15, 85, 95, 100), include.lowest = TRUE)
+trex.plot$cuts = cut(trex.plot$col, c(0, 5, 15, 85, 95, 100), include.lowest = TRUE, right = FALSE)
 trex.plot$cuts = factor(trex.plot$cuts,
-                        levels = c("(15,85]", "(5,15]", "[0,5]", "(85,95]", "(95,100]"))
+                        levels = c("[15,85)", "[5,15)", "[0,5)", "[85,95)", "[95,100]"))
 ordered_plot = trex.plot[order(trex.plot$cuts), ]
 range <- apply(apply(umap.data, 2, range), 2, diff)
 graphical.ratio <- (range[1] / range[2])
@@ -136,11 +136,11 @@ final_trex_plot <-
   scale_color_manual(
     name = "col",
     values = c(
-      "(15,85]" = "lightgray",
-      "(5,15]" = "lightskyblue",
-      "[0,5]" = "navyblue",
-      "(85,95]" = "lightcoral",
-      "(95,100]" = "darkred"
+      "[15,85)" = "lightgray",
+      "[5,15)" = "lightskyblue",
+      "[0,5)" = "navyblue",
+      "[85,95)" = "lightcoral",
+      "[95,100]" = "darkred"
     )
   ) +
   theme_bw() + theme(panel.grid.major = element_blank(),
