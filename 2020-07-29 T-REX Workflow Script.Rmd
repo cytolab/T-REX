@@ -188,7 +188,7 @@ cluster = a$cluster
 track.data = cbind(regions.of.interest,cluster)
 track.data <- track.data %>%
   filter(cluster!=0)
-track.data$cluster[which(track.data$status=="[0,5)")]<-paste0(track.data$cluster[which(track.data$status=="[0,)]")],"05")
+track.data$cluster[which(track.data$status=="[0,5)")]<-paste0(track.data$cluster[which(track.data$status=="[0,5)")],"05")
 track.data$cluster[which(track.data$status=="[95,100]")]<-paste0(track.data$cluster[which(track.data$status=="[95,100]")],"95")
 track.data$cluster<-as.numeric(track.data$cluster)
 
