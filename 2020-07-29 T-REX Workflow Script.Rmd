@@ -58,10 +58,10 @@ first.timepoint = 1
 second.timepoint = 2
 
 # combine paired samples
-first.timepoint.data = as.data.frame(lapply(lapply(data.files[[1]], read.FCS), exprs))
-first.timepoint.data$File_ID = 1
-second.timepoint.data = as.data.frame(lapply(lapply(data.files[[2]], read.FCS), exprs))
-second.timepoint.data$File_ID = 2
+first.timepoint.data = as.data.frame(lapply(lapply(data.files[[first.timepoint]], read.FCS), exprs))
+first.timepoint.data$File_ID = first.timepoint
+second.timepoint.data = as.data.frame(lapply(lapply(data.files[[second.timepoint]], read.FCS), exprs))
+second.timepoint.data$File_ID = second.timepoint
 paired.data = rbind(first.timepoint.data,second.timepoint.data)
 orig.names <- colnames(paired.data)
 colnames(paired.data)[1:length(paired.data) - 1] <- as.character(read.FCS(data.files[[1]])@parameters@data[["desc"]])
@@ -105,7 +105,7 @@ neighbor_index[neighbor_index > nrow(umap.data)/2] <- 1
 percent_change = (rowSums(neighbor_index) / kvalue * 100)
 
 # binning and plot info
-all.data = cbind(my.sampled.data, umap.data)
+all.data = cbind(my.sampled.data, umap.data,percent_change)
 range <- apply(apply(umap.data, 2, range), 2, diff)
 graphical.ratio <- (range[1] / range[2])
 test.round = round(percent_change)
@@ -188,9 +188,15 @@ cluster = a$cluster
 track.data = cbind(regions.of.interest,cluster)
 track.data <- track.data %>%
   filter(cluster!=0)
+
 track.data$cluster[which(track.data$status=="[0,5)")]<-paste0(track.data$cluster[which(track.data$status=="[0,5)")],"05")
 track.data$cluster[which(track.data$status=="[95,100]")]<-paste0(track.data$cluster[which(track.data$status=="[95,100]")],"95")
 track.data$cluster<-as.numeric(track.data$cluster)
+cluster.data = split(track.data,track.data$cluster)
+median.percent.change = lapply(cluster.data, function(x) median(x[,which(colnames(track.data)=="percent_change")]))
+mean.percent.change = lapply(cluster.data, function(x) mean(x[,which(colnames(track.data)=="percent_change")]))
+write.csv(mean.percent.change,paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S")," DBSCAN_cluster_average_percent_change.csv",sep =""))
+
 
 png(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S")," DBSCAN_plot.png",sep =""),res = 200, width = 1000, height = 1000)
 dbscan_plot <- ggplot(data.frame(x = track.data$UMAP1, 
