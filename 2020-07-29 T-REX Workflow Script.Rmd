@@ -59,12 +59,14 @@ second.timepoint = 2
 
 # combine paired samples
 first.timepoint.data = as.data.frame(lapply(lapply(data.files[[first.timepoint]], read.FCS), exprs))
-first.timepoint.data$File_ID = first.timepoint
+first.timepoint.data$orig_ID = first.timepoint
+first.timepoint.data$File_ID = 1
 second.timepoint.data = as.data.frame(lapply(lapply(data.files[[second.timepoint]], read.FCS), exprs))
-second.timepoint.data$File_ID = second.timepoint
+second.timepoint.data$orig_ID = second.timepoint
+second.timepoint.data$File_ID = 2
 paired.data = rbind(first.timepoint.data,second.timepoint.data)
 orig.names <- colnames(paired.data)
-colnames(paired.data)[1:length(paired.data) - 1] <- as.character(read.FCS(data.files[[1]])@parameters@data[["desc"]])
+colnames(paired.data)[1:(length(paired.data) - 2)] <- as.character(read.FCS(data.files[[1]])@parameters@data[["desc"]])
 ```
 
 ```{r equal_sampling}
@@ -235,15 +237,14 @@ write.csv(cluster.data,paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%
 print(cluster.data)
 ```
 
-
 ```{r export_FCS_files}
 # export new FCS files with sampled data, percent change, and umap axes
 to.export = cbind(my.sampled.data,umap.data,percent_change)
-desc = colnames(to.export)[-c(ncol(my.sampled.data))]
+desc = colnames(to.export)[-c(ncol(my.sampled.data),(ncol(my.sampled.data)-1))]
 colnames(to.export)[1:ncol(my.sampled.data)]<-orig.names
-separate.fcs.files = split(to.export,to.export$`File_ID`)
+separate.fcs.files = split(to.export,to.export$`orig_ID`)
 for (i in 1:length(separate.fcs.files)){
-reduce.data = subset(separate.fcs.files[[i]], select=-c(`File_ID`))
+reduce.data = subset(separate.fcs.files[[i]], select=-c(`File_ID`,`orig_ID`))
 mat.input<- as.matrix(reduce.data)
 metadata <- data.frame(name = dimnames(mat.input)[[2]], desc = desc)
 metadata$range <- apply(apply(mat.input, 2, range), 2, diff)
