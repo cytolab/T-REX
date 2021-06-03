@@ -200,15 +200,22 @@ mean.percent.change = lapply(cluster.data, function(x) mean(x[,which(colnames(tr
 write.csv(mean.percent.change,paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S")," DBSCAN_cluster_average_percent_change.csv",sep =""))
 
 
-png(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S")," DBSCAN_plot.png",sep =""),res = 200, width = 1000, height = 1000)
-dbscan_plot <- ggplot(data.frame(x = track.data$UMAP1, 
-                   y = track.data$UMAP2, 
+library(RColorBrewer)
+qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+  col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors,
+                             rownames(qual_col_pals)))
+  values = sample(col_vector)
+
+
+png(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S")," DBSCAN_plot.png",sep =""),res = 200, width = 1500, height = 1500)
+dbscan_plot <- ggplot(data.frame(x = track.data$tSNE1, 
+                   y = track.data$tSNE2, 
                    col = as.factor(track.data$cluster))) + coord_fixed(ratio = graphical.ratio) + 
   geom_point(aes(x=x, y=y, color=col),cex = 1.5) + 
   guides(colour = guide_legend(override.aes = list(size=5), nrow = 13)) +
-  labs(x = "UMAP 1", y = "UMAP 2",title = "DBSCAN Clusters (5th & 95th percentiles)", 
-       color = "DBSCAN Cluster") + theme_bw() + theme(legend.title = element_blank()) + 
-  labs(caption = "Data from Brodin lab in 2020 et al., medRxiv 2020")
+  labs(x = "t-SNE 1", y = "t-SNE 2",title = "DBSCAN Clusters (5th & 95th percentiles)", 
+       color = "DBSCAN Cluster") + theme_bw() + theme(panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank()) + theme(legend.title = element_blank()) + scale_color_manual(values = values)
 print(dbscan_plot)
 dev.off()
 dbscan_plot
