@@ -21,6 +21,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # devtools::install_github("cytolab/mem")
 # install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 # install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+# install.packages("FNN", repos = "http://cran.us.r-project.org")
 # install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 # install.packages("uwot", repos = "http://cran.us.r-project.org")
 # install.packages("dbscan", repos = "http://cran.us.r-project.org")
@@ -185,7 +186,7 @@ print(sample.table)
 regions.of.interest <- all.data %>%
   dplyr::filter(status == "[0,5)" | status == "[95,100]") 
 regions.of.interest.umap = cbind(regions.of.interest$UMAP1,regions.of.interest$UMAP2)
-a = dbscan::dbscan(regions.of.interest.umap, eps = 0.3,minPts = 50)
+a = dbscan::dbscan(regions.of.interest.umap, eps = 0.3,minPts = 1)
 cluster = a$cluster 
 track.data = cbind(regions.of.interest,cluster)
 track.data <- track.data %>%
@@ -208,12 +209,12 @@ qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
 
 
 png(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S")," DBSCAN_plot.png",sep =""),res = 200, width = 1500, height = 1500)
-dbscan_plot <- ggplot(data.frame(x = track.data$tSNE1, 
-                   y = track.data$tSNE2, 
+dbscan_plot <- ggplot(data.frame(x = track.data$UMAP1, 
+                   y = track.data$UMAP2, 
                    col = as.factor(track.data$cluster))) + coord_fixed(ratio = graphical.ratio) + 
   geom_point(aes(x=x, y=y, color=col),cex = 1.5) + 
   guides(colour = guide_legend(override.aes = list(size=5), nrow = 13)) +
-  labs(x = "t-SNE 1", y = "t-SNE 2",title = "DBSCAN Clusters (5th & 95th percentiles)", 
+  labs(x = "UMAP 1", y = "UMAP 2",title = "DBSCAN Clusters (5th & 95th percentiles)", 
        color = "DBSCAN Cluster") + theme_bw() + theme(panel.grid.major = element_blank(),
                      panel.grid.minor = element_blank()) + theme(legend.title = element_blank()) + scale_color_manual(values = values)
 print(dbscan_plot)
