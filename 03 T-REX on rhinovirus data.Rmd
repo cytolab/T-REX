@@ -40,14 +40,10 @@ library(dbscan)
 library(MEM)
 library(tidyverse)
 library(Biobase)
-<<<<<<< HEAD
 library(RColorBrewer)
 library(dplyr)
 library(purrr)
 library(cowplot)
-
-=======
->>>>>>> 16b7355839a0a5a948eb31ffbd8f298c052fda98
 
 # set working directory 
 setwd(paste(getwd(),"/data_files/rhinovirus", sep = ""))
@@ -169,7 +165,6 @@ final_trex_plot
 ```{r trex_results}  
 setwd(paste(getwd(),"/data_files/rhinovirus", sep = ""))
 
-<<<<<<< HEAD
 umap.bychannel <- as_tibble(umap.data) %>%
   bind_cols(transformed.data)  %>%
   gather(channel, intensity, -UMAP1, -UMAP2) %>%
@@ -189,8 +184,6 @@ umap.bychannel <- as_tibble(umap.data) %>%
 png(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"UMAP on transformed data.png"),height = 2000,width = 4000)
 print(umap.bychannel)
 dev.off()
-=======
->>>>>>> 16b7355839a0a5a948eb31ffbd8f298c052fda98
 # uncomment lines below to plot heat on markers on umap axes
 #plot.to.output<-list() 
 # for (i in 1:ncol(umap.input)){
