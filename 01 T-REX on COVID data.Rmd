@@ -40,6 +40,10 @@ library(dbscan)
 library(MEM)
 library(tidyverse)
 library(Biobase)
+library(RColorBrewer)
+library(dplyr)
+library(purrr)
+library(cowplot)
 
 # set working directory 
 setwd(paste(getwd(),"/data_files/brodin covid", sep = ""))
@@ -163,6 +167,27 @@ final_trex_plot
 ```{r trex_results}  
 setwd(paste(getwd(),"/data_files/brodin covid", sep = ""))
 
+<<<<<<< HEAD:01 T-REX on COVID data.Rmd
+umap.bychannel <- as_tibble(umap.data) %>%
+  bind_cols(transformed.data)  %>%
+  gather(channel, intensity, -UMAP1, -UMAP2) %>%
+  mutate(across(channel,factor))%>%
+  group_split(channel) %>%
+  map(
+    ~ggplot(.,aes(x= UMAP1, y= UMAP2, col = intensity)) +
+  geom_point(shape = ".",size = 8) +
+  scale_color_gradientn(
+    colours = colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(5))+
+  facet_grid(~ channel, labeller = function(x) label_value(x, multi_line = FALSE)) +
+  coord_fixed() +
+  theme_bw()+
+  theme(strip.text.x = element_text(size = 20),legend.title=element_blank()))%>%
+  plot_grid(plotlist = ., align = 'hv', ncol = 8)
+
+png(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"UMAP on transformed data.png"),height = 2000,width = 4000)
+print(umap.bychannel)
+dev.off()
+=======
 # uncomment lines below to plot heat on markers on umap axes
 #plot.to.output<-list() 
 # for (i in 1:ncol(umap.input)){
@@ -173,6 +198,7 @@ setwd(paste(getwd(),"/data_files/brodin covid", sep = ""))
 #     labs (x = "UMAP1", y = "UMAP2", col = colnames(umap.input)[i])+
 #   scale_color_gradientn(
 #     colours = colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(50)))}
+>>>>>>> 16b7355839a0a5a948eb31ffbd8f298c052fda98:01 T-REX on COVID data.Rmd
 
 # calculate degree of change and direction of change for individual pairwise comparison
 all.data$status <- trex.plot$cuts
