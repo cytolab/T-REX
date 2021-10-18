@@ -1,7 +1,7 @@
 # T-REX (Tracking Responders Expanding)
 
-### T-REX pre-print available via bioRxiv:
-#### https://www.biorxiv.org/content/10.1101/2020.07.31.190454v1.full
+### T-REX publication available through eLife:
+#### https://elifesciences.org/articles/64653
 
 T-REX is an algorithm developed in R for machine learning.  The T-REX acronym stands for Tracking Responders Expanding.  
 
@@ -10,8 +10,8 @@ T-REX takes as input two flow cytometry files that represent a pair of sampling 
 In the context of immune monitoring, the focus of T-REX on regions of great change between two sampling times can reveal disease-specific immune cells reacting to a virus.  T-REX has been tested on mass cytometry and spectral flow cytometry data from individuals with COVID-19, rhinovirus, melanoma, and leukemia.  For the associated scientific manuscript, please see Barone and Paul et al., bioRxiv 2020:
 
 Unsupervised machine learning reveals key immune cell subsets in COVID-19, rhinovirus infection, and cancer therapy
-https://www.biorxiv.org/content/10.1101/2020.07.31.190454v1.full
-Sierra M. Barone*,  Alberta G.A. Paul*,  M. Muehling,  A. Lannigan,  William W. Kwok, Ronald B. Turner,  Judith A. Woodfolk,  Jonathan M. Irish
+https://elifesciences.org/articles/64653
+Sierra M. Barone*,  Alberta G.A. Paul*,  M. Muehling*,  A. Lannigan,  William W. Kwok, Ronald B. Turner,  Judith A. Woodfolk,  Jonathan M. Irish
 
 ### Figure 1:
 
