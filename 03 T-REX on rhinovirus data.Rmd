@@ -315,7 +315,7 @@ print(ggplot(data.to.plot, aes(x = test.round, y = total.tetra.count)) +
   geom_boxplot(outlier.shape = NA, fill="gray")  + labs(x=paste("% change in KNN region k=",kvalue), y = "% Tetramer+ in KNN region")+ theme_classic())
 dev.off()
 
-for (i in c(5)){
+i = 5
   
 all.data$status <- 0
 data.to.plot = as.data.frame(cbind(test.round,total.tetra.count))
@@ -336,6 +336,7 @@ clinical_clusters <- ggplot(plot)+ geom_point(aes(x = all.data.ordered$UMAP1, y 
   guides(colour = guide_legend(override.aes = list(size=5)))+ theme_bw() + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + labs (x = "UMAP1", y = "UMAP2", title = paste0("% change above 95, % tetra+ at ",i)) + coord_fixed(ratio=graphical.ratio)
 print(clinical_clusters)
 dev.off()
+print(clinical_clusters)
 
 png(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S")," UMAP_plot_tet_change_95.png"),res = 200,
   width = 1500,
@@ -352,7 +353,6 @@ clinical_clusters <- ggplot(plot)+ geom_point(aes(x = all.data.ordered$UMAP1, y 
   guides(colour = guide_legend(override.aes = list(size=5)))+ theme_bw() + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ labs (x = "UMAP1", y = "UMAP2", title = paste0("% change at 95, % tetra+ at ",i)) + coord_fixed(ratio=graphical.ratio)
 print(clinical_clusters)
 dev.off()
-
-}
+print(clinical_clusters)
 
 ```

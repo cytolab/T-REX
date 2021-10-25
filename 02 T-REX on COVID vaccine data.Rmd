@@ -16,6 +16,20 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Data from Kramer et al., bioRxiv. 2021 (https://doi.org/10.1101/2021.07.28.453981)
 
+
+# uncomment lines below to install packages
+# install.packages("devtools", repos = "http://cran.us.r-project.org")
+# devtools::install_github("cytolab/mem")
+# install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+# install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+# install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+# install.packages("uwot", repos = "http://cran.us.r-project.org")
+# install.packages("dbscan", repos = "http://cran.us.r-project.org")
+# if (!requireNamespace("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+# BiocManager::install("flowCore")
+# BiocManager::install("Biobase")
+
 # load packages
 library(flowCore)
 library(uwot)
@@ -278,51 +292,12 @@ setwd(paste(getwd(),"/data_files/covid vaccine", sep = ""))
 # run MEM on DBSCAN clusters split by 95th and 5th percentiles of change in KNN region
 MEM.data = track.data[,c(3,8,10:14,16,27:31,33:38,40,42,44:50,52:62,70,ncol(track.data))]
 MEM.data = MEM.data[order(MEM.data$cluster),]
-cofactor = c(45
-,15
-,10
-,10
-,10
-,15
-,5
-,15
-,25
-,25
-,15
-,15
-,15
-,15
-,15
-,15
-,15
-,25
-,25
-,15
-,15
-,15
-,25
-,15
-,25
-,25
-,15
-,15
-,45
-,15
-,15
-,15
-,45
-,25
-,25
-,15
-,25
-,25
-,15
-,25,1)
+cofactor = c(45,15,10,10,10,15,5,15,25,25,15,15,15,15,15,15,15,25,25,15,15,15,25,15,25,25,15,15,45,15,15,15,45,25,25,15,25,25,15,25,1)
 MEM.data.transformed = as.data.frame(t(apply(MEM.data, 1, function(x) asinh(x/cofactor))))
 MEM.data.transformed[,41]<-MEM.data[,41]
 MEM.values.KNN = MEM(MEM.data, transform = FALSE, cofactor = 0,
                      choose.markers = FALSE, markers = "all", choose.ref = FALSE, zero.ref = TRUE, rename.markers = FALSE,
-                     new.marker.names = "none", file.is.clust = FALSE, add.fileID = FALSE, IQR.thresh = NULL,scale.matrix = "arcsinh",scale.factor = 1)
+                     new.marker.names = "CD45,CD66b,CD16,CD8,CD14,CD4,CD3,CD19,CD45R0,CPT1a,CD127,ATP5a,GRIM19,CD20,CD27,CCR4,CD134,ICOS,TCRgd,GLUT3,CXCR3,CD137,CCR7,CD98,CTLA4,Ki-67,GLUT1,CD95,CD44,CD38,CYTOC,CD25,CD45RA,CXCR5,CD57,CXCR4,HLA-DR,PD-1,CD56,CD11b", file.is.clust = FALSE, add.fileID = FALSE, IQR.thresh = NULL,scale.matrix = "arcsinh",scale.factor = 1)
 build.heatmaps(MEM.values.KNN, cluster.MEM = "none", cluster.medians = "none",
                display.thresh = 1, newWindow.heatmaps=FALSE, output.files = TRUE, labels = FALSE)
 all.clusters = split(track.data,as.factor(track.data$cluster))
