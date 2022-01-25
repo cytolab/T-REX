@@ -272,9 +272,9 @@ setwd(paste(getwd(),"/data_files/rhinovirus", sep = ""))
 to.export = cbind(my.sampled.data,umap.data,percent_change)
 desc = colnames(to.export)[-c(ncol(my.sampled.data))]
 colnames(to.export)[1:ncol(my.sampled.data)]<-orig.names
-separate.fcs.files = split(to.export,to.export$`File_ID`)
+separate.fcs.files = split(to.export,to.export$`orig_ID`)
 for (i in 1:length(separate.fcs.files)){
-reduce.data = subset(separate.fcs.files[[i]], select=-c(`File_ID`))
+reduce.data = subset(separate.fcs.files[[i]], select=-c(`File_ID`,`orig_ID`))
 mat.input<- as.matrix(reduce.data)
 metadata <- data.frame(name = dimnames(mat.input)[[2]], desc = desc)
 metadata$range <- apply(apply(mat.input, 2, range), 2, diff)
