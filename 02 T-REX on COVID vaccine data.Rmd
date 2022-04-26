@@ -103,15 +103,7 @@ dir.create("./output files/")
 tsne.data = as.data.frame(cbind(my.sampled.data$tSNE1,my.sampled.data$tSNE2))
 colnames(tsne.data) <- c("tSNE1", "tSNE2")
 
-umap.input = transformed.data
-```
-
-```{r UMAP}
-setwd(paste(getwd(),"/data_files/covid vaccine", sep = ""))
-
-dir.create("./output files/")
-umap.data = as.data.frame(cbind(my.sampled.data$tSNE1,my.sampled.data$tSNE2))
-colnames(umap.data) <- c("tSNE1", "tSNE2")
+tsne.input = transformed.data
 ```
 
 ```{r KNN}
@@ -122,9 +114,9 @@ setwd(paste(getwd(),"/data_files/covid vaccine", sep = ""))
 neighbor_index = knnx.index(tsne.data,tsne.data,k=kvalue)
 neighbor_index[neighbor_index <= nrow(tsne.data)/2] <- 0
 neighbor_index[neighbor_index > nrow(tsne.data)/2] <- 1
-neighbor_index = knnx.index(umap.data,umap.data,k=kvalue)
-neighbor_index[neighbor_index <= nrow(umap.data)/2] <- 0
-neighbor_index[neighbor_index > nrow(umap.data)/2] <- 1
+neighbor_index = knnx.index(tsne.data,tsne.data,k=kvalue)
+neighbor_index[neighbor_index <= nrow(tsne.data)/2] <- 0
+neighbor_index[neighbor_index > nrow(tsne.data)/2] <- 1
 # calculate percent change in each KNN region
 percent_change = (rowSums(neighbor_index) / kvalue * 100)
 
@@ -138,17 +130,17 @@ graphical.ratio <- (range[1] / range[2])
 test.round = round(percent_change)
 trex.plot <-
   data.frame(x = tsne.data[, 1], y = tsne.data[, 2], col = test.round)
-range <- apply(apply(umap.data, 2, range), 2, diff)
+range <- apply(apply(tsne.data, 2, range), 2, diff)
 graphical.ratio <- (range[1] / range[2])
 test.round = round(percent_change)
 trex.plot <-
-  data.frame(x = umap.data[, 1], y = umap.data[, 2], col = test.round)
+  data.frame(x = tsne.data[, 1], y = tsne.data[, 2], col = test.round)
 trex.plot$cuts = cut(trex.plot$col, c(0, 5, 15, 85, 95, 100), include.lowest = TRUE, right = FALSE)
 trex.plot$cuts = factor(trex.plot$cuts,
                         levels = c("[15,85)", "[5,15)", "[0,5)", "[85,95)", "[95,100]"))
 ordered_plot = trex.plot[order(trex.plot$cuts), ]
 range <- apply(apply(tsne.data, 2, range), 2, diff)
-range <- apply(apply(umap.data, 2, range), 2, diff)
+range <- apply(apply(tsne.data, 2, range), 2, diff)
 graphical.ratio <- (range[1] / range[2])
 
 # create T-REX plot
@@ -216,23 +208,23 @@ sample.table[,c(5:9)]<-summary(trex.plot$cuts)
 colnames(sample.table)[5:9]<-c( "[15,85)", "[5,15)", "[0,5)", "[85,95)", "[95,100]")
 percent = 100*(summary(trex.plot$cuts)/nrow(tsne.data))
 
-# uncomment lines below to plot heat on markers on umap axes
+# uncomment lines below to plot heat on markers on tsne axes
 #plot.to.output<-list() 
-# for (i in 1:ncol(umap.input)){
-#   color.plot <- data.frame(x = umap.data[,1], y = umap.data[,2], col = umap.input[,c(i)])
+# for (i in 1:ncol(tsne.input)){
+#   color.plot <- data.frame(x = tsne.data[,1], y = tsne.data[,2], col = tsne.input[,c(i)])
 #   order.plot <- color.plot[order(color.plot$col),]
 #   print(ggplot(order.plot)+ geom_point(aes(x= x, y= y, col = col),cex = 0.1,shape = 1) + coord_fixed(ratio=graphical.ratio) + 
 #   theme_bw()+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ 
-#     labs (x = "tSNE1", y = "tSNE2", col = colnames(umap.input)[i])+
+#     labs (x = "tSNE1", y = "tSNE2", col = colnames(tsne.input)[i])+
 #   scale_color_gradientn(
 #     colours = colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(50)))}
 
 # calculate degree of change and direction of change for individual pairwise comparison
 all.data$status <- trex.plot$cuts
-sample.table <- data.frame(sample_type,sample_id,time_comparison,total_cells = nrow(umap.data))
+sample.table <- data.frame(sample_type,sample_id,time_comparison,total_cells = nrow(tsne.data))
 sample.table[,c(5:9)]<-summary(trex.plot$cuts)
 colnames(sample.table)[5:9]<-c( "[15,85)", "[5,15)", "[0,5)", "[85,95)", "[95,100]")
-percent = 100*(summary(trex.plot$cuts)/nrow(umap.data))
+percent = 100*(summary(trex.plot$cuts)/nrow(tsne.data))
 sample.table$degree_of_change = (sum(percent[3]+percent[5]))
 sample.table$direction_of_change = (summary(trex.plot$cuts)[5]-summary(trex.plot$cuts)[3]) / (summary(trex.plot$cuts)[5]+summary(trex.plot$cuts)[3])
 
@@ -248,8 +240,8 @@ regions.of.interest <- all.data %>%
   dplyr::filter(status == "[0,5)" | status == "[95,100]") 
 regions.of.interest.tsne = cbind(regions.of.interest$tSNE1,regions.of.interest$tSNE2)
 a = dbscan::dbscan(regions.of.interest.tsne, eps = 4,minPts = 1)
-regions.of.interest.umap = cbind(regions.of.interest$tSNE1,regions.of.interest$tSNE2)
-a = dbscan::dbscan(regions.of.interest.umap, eps = 4,minPts = 1)
+regions.of.interest.tsne = cbind(regions.of.interest$tSNE1,regions.of.interest$tSNE2)
+a = dbscan::dbscan(regions.of.interest.tsne, eps = 4,minPts = 1)
 cluster = a$cluster 
 track.data = cbind(regions.of.interest,cluster)
 track.data <- track.data %>%
@@ -321,8 +313,8 @@ setwd(paste(getwd(),"/data_files/covid vaccine", sep = ""))
 # export new FCS files with sampled data, percent change, and tsne axes
 to.export = cbind(my.sampled.data,tsne.data,percent_change)
 
-# export new FCS files with sampled data, percent change, and umap axes
-to.export = cbind(my.sampled.data,umap.data,percent_change)
+# export new FCS files with sampled data, percent change, and tsne axes
+to.export = cbind(my.sampled.data,tsne.data,percent_change)
 desc = colnames(to.export)[-c(ncol(my.sampled.data))]
 colnames(to.export)[1:ncol(my.sampled.data)]<-orig.names
 separate.fcs.files = split(to.export,to.export$`orig_ID`)
