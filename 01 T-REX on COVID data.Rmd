@@ -17,8 +17,9 @@ knitr::opts_chunk$set(echo = TRUE)
 # Data from Brodin lab in Rodriguez et al., Cell Rep Med. 2020 (https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7405891/)
 
 # uncomment lines below to install packages
-# install.packages("devtools", repos = "http://cran.us.r-project.org")
-# devtools::install_github("cytolab/mem")
+# if (!require("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+# BiocManager::install("cytoMEM")
 # install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 # install.packages("ggplot2", repos = "http://cran.us.r-project.org")
 # install.packages("FNN", repos = "http://cran.us.r-project.org")
@@ -37,7 +38,7 @@ library(uwot)
 library(FNN)
 library(ggplot2)
 library(dbscan)
-library(MEM)
+library(cytoMEM)
 library(tidyverse)
 library(Biobase)
 library(RColorBrewer)
@@ -262,8 +263,8 @@ MEM.data = MEM.data[order(MEM.data$cluster),]
 MEM.values.KNN = MEM(MEM.data, transform = TRUE, cofactor = 5,
                      choose.markers = FALSE, markers = "all", choose.ref = FALSE, zero.ref = TRUE, rename.markers = FALSE,
                      new.marker.names = "none", file.is.clust = FALSE, add.fileID = FALSE, IQR.thresh = NULL,scale.matrix = "arcsinh",scale.factor = 1)
-build.heatmaps(MEM.values.KNN, cluster.MEM = "none", cluster.medians = "none",
-               display.thresh = 1, newWindow.heatmaps=FALSE, output.files = TRUE, labels = FALSE)
+build_heatmaps(MEM.values.KNN, cluster.MEM = "none", cluster.medians = "none",
+               display.thresh = 1,  output.files = TRUE, labels = FALSE)
 all.clusters = split(track.data,as.factor(track.data$cluster))
 counts.total  <- sapply(all.clusters, NROW)
 counts.5<-vector()

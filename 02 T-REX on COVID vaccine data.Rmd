@@ -18,8 +18,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 # uncomment lines below to install packages
-# install.packages("devtools", repos = "http://cran.us.r-project.org")
-# devtools::install_github("cytolab/mem")
+# if (!require("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+# BiocManager::install("cytoMEM")
 # install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 # install.packages("ggplot2", repos = "http://cran.us.r-project.org")
 # install.packages("tidyverse", repos = "http://cran.us.r-project.org")
@@ -36,7 +37,7 @@ library(uwot)
 library(FNN)
 library(ggplot2)
 library(dbscan)
-library(MEM)
+library(cytoMEM)
 library(tidyverse)
 library(Biobase)
 library(RColorBrewer)
@@ -102,21 +103,16 @@ setwd(paste(getwd(),"/data_files/covid vaccine", sep = ""))
 dir.create("./output files/")
 tsne.data = as.data.frame(cbind(my.sampled.data$tSNE1,my.sampled.data$tSNE2))
 colnames(tsne.data) <- c("tSNE1", "tSNE2")
-
-tsne.input = transformed.data
 ```
 
 ```{r KNN}
 setwd(paste(getwd(),"/data_files/covid vaccine", sep = ""))
 
 # KNN search per cell 
+neighbor_index = knnx.index(tsne.data,tsne.data,k=kvalue)
+neighbor_index[neighbor_index <= nrow(tsne.data)/2] <- 0
+neighbor_index[neighbor_index > nrow(tsne.data)/2] <- 1
 
-neighbor_index = knnx.index(tsne.data,tsne.data,k=kvalue)
-neighbor_index[neighbor_index <= nrow(tsne.data)/2] <- 0
-neighbor_index[neighbor_index > nrow(tsne.data)/2] <- 1
-neighbor_index = knnx.index(tsne.data,tsne.data,k=kvalue)
-neighbor_index[neighbor_index <= nrow(tsne.data)/2] <- 0
-neighbor_index[neighbor_index > nrow(tsne.data)/2] <- 1
 # calculate percent change in each KNN region
 percent_change = (rowSums(neighbor_index) / kvalue * 100)
 
@@ -139,9 +135,6 @@ trex.plot$cuts = cut(trex.plot$col, c(0, 5, 15, 85, 95, 100), include.lowest = T
 trex.plot$cuts = factor(trex.plot$cuts,
                         levels = c("[15,85)", "[5,15)", "[0,5)", "[85,95)", "[95,100]"))
 ordered_plot = trex.plot[order(trex.plot$cuts), ]
-range <- apply(apply(tsne.data, 2, range), 2, diff)
-range <- apply(apply(tsne.data, 2, range), 2, diff)
-graphical.ratio <- (range[1] / range[2])
 
 # create T-REX plot
 png(
@@ -201,13 +194,6 @@ png(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"t-SNE on tra
 print(tsne.bychannel)
 dev.off()
 
-# calculate degree of change and direction of change for individual pairwise comparison
-all.data$status <- trex.plot$cuts
-sample.table <- data.frame(sample_type,sample_id,time_comparison,total_cells = nrow(tsne.data))
-sample.table[,c(5:9)]<-summary(trex.plot$cuts)
-colnames(sample.table)[5:9]<-c( "[15,85)", "[5,15)", "[0,5)", "[85,95)", "[95,100]")
-percent = 100*(summary(trex.plot$cuts)/nrow(tsne.data))
-
 # uncomment lines below to plot heat on markers on tsne axes
 #plot.to.output<-list() 
 # for (i in 1:ncol(tsne.input)){
@@ -238,8 +224,6 @@ setwd(paste(getwd(),"/data_files/covid vaccine", sep = ""))
 # use DBSCAN to cluster on regions of great change (5th and 95 percentiles of change)
 regions.of.interest <- all.data %>%
   dplyr::filter(status == "[0,5)" | status == "[95,100]") 
-regions.of.interest.tsne = cbind(regions.of.interest$tSNE1,regions.of.interest$tSNE2)
-a = dbscan::dbscan(regions.of.interest.tsne, eps = 4,minPts = 1)
 regions.of.interest.tsne = cbind(regions.of.interest$tSNE1,regions.of.interest$tSNE2)
 a = dbscan::dbscan(regions.of.interest.tsne, eps = 4,minPts = 1)
 cluster = a$cluster 
@@ -290,8 +274,8 @@ MEM.data.transformed[,41]<-MEM.data[,41]
 MEM.values.KNN = MEM(MEM.data, transform = FALSE, cofactor = 0,
                      choose.markers = FALSE, markers = "all", choose.ref = FALSE, zero.ref = TRUE, rename.markers = FALSE,
                      new.marker.names = "CD45,CD66b,CD16,CD8,CD14,CD4,CD3,CD19,CD45R0,CPT1a,CD127,ATP5a,GRIM19,CD20,CD27,CCR4,CD134,ICOS,TCRgd,GLUT3,CXCR3,CD137,CCR7,CD98,CTLA4,Ki-67,GLUT1,CD95,CD44,CD38,CYTOC,CD25,CD45RA,CXCR5,CD57,CXCR4,HLA-DR,PD-1,CD56,CD11b", file.is.clust = FALSE, add.fileID = FALSE, IQR.thresh = NULL,scale.matrix = "arcsinh",scale.factor = 1)
-build.heatmaps(MEM.values.KNN, cluster.MEM = "none", cluster.medians = "none",
-               display.thresh = 1, newWindow.heatmaps=FALSE, output.files = TRUE, labels = FALSE)
+build_heatmaps(MEM.values.KNN, cluster.MEM = "none", cluster.medians = "none",
+               display.thresh = 1,  output.files = TRUE, labels = FALSE)
 all.clusters = split(track.data,as.factor(track.data$cluster))
 counts.total  <- sapply(all.clusters, NROW)
 counts.5<-vector()
@@ -312,10 +296,7 @@ setwd(paste(getwd(),"/data_files/covid vaccine", sep = ""))
 
 # export new FCS files with sampled data, percent change, and tsne axes
 to.export = cbind(my.sampled.data,tsne.data,percent_change)
-
-# export new FCS files with sampled data, percent change, and tsne axes
-to.export = cbind(my.sampled.data,tsne.data,percent_change)
-desc = colnames(to.export)[-c(ncol(my.sampled.data))]
+desc = colnames(to.export)[-c((ncol(my.sampled.data)-1):ncol(my.sampled.data))]
 colnames(to.export)[1:ncol(my.sampled.data)]<-orig.names
 separate.fcs.files = split(to.export,to.export$`orig_ID`)
 for (i in 1:length(separate.fcs.files)){

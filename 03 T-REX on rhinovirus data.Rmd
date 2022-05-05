@@ -18,8 +18,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 # uncomment lines below to install packages
-# install.packages("devtools", repos = "http://cran.us.r-project.org")
-# devtools::install_github("cytolab/mem")
+# if (!require("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+# BiocManager::install("cytoMEM")
 # install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 # install.packages("ggplot2", repos = "http://cran.us.r-project.org")
 # install.packages("tidyverse", repos = "http://cran.us.r-project.org")
@@ -37,7 +38,7 @@ library(uwot)
 library(FNN)
 library(ggplot2)
 library(dbscan)
-library(MEM)
+library(cytoMEM)
 library(tidyverse)
 library(Biobase)
 library(RColorBrewer)
@@ -63,13 +64,15 @@ first.timepoint = 1
 second.timepoint = 2
 
 # combine paired samples
-first.timepoint.data = as.data.frame(lapply(lapply(data.files[[1]], read.FCS), exprs))
+first.timepoint.data = as.data.frame(lapply(lapply(data.files[[first.timepoint]], read.FCS), exprs))
+first.timepoint.data$orig_ID = first.timepoint
 first.timepoint.data$File_ID = 1
-second.timepoint.data = as.data.frame(lapply(lapply(data.files[[2]], read.FCS), exprs))
+second.timepoint.data = as.data.frame(lapply(lapply(data.files[[second.timepoint]], read.FCS), exprs))
+second.timepoint.data$orig_ID = second.timepoint
 second.timepoint.data$File_ID = 2
 paired.data = rbind(first.timepoint.data,second.timepoint.data)
 orig.names <- colnames(paired.data)
-colnames(paired.data)[1:length(paired.data) - 1] <- as.character(read.FCS(data.files[[1]])@parameters@data[["desc"]])
+colnames(paired.data)[1:(length(paired.data) - 2)] <- as.character(read.FCS(data.files[[1]])@parameters@data[["desc"]])
 ```
 
 ```{r equal_sampling}
@@ -248,8 +251,8 @@ MEM.data = MEM.data[order(MEM.data$cluster),]
 MEM.values.KNN = MEM(MEM.data, transform = TRUE, cofactor = 6000,
                      choose.markers = FALSE, markers = "all", choose.ref = FALSE, zero.ref = TRUE, rename.markers = FALSE,
                      new.marker.names = "none", file.is.clust = FALSE, add.fileID = FALSE, IQR.thresh = NULL)
-build.heatmaps(MEM.values.KNN, cluster.MEM = "none", cluster.medians = "none",
-               display.thresh = 1, newWindow.heatmaps=FALSE, output.files = TRUE, labels = FALSE)
+build_heatmaps(MEM.values.KNN, cluster.MEM = "none", cluster.medians = "none",
+               display.thresh = 1, output.files = TRUE, labels = FALSE)
 all.clusters = split(track.data,as.factor(track.data$cluster))
 counts.total  <- sapply(all.clusters, NROW)
 counts.5<-vector()
@@ -270,7 +273,7 @@ setwd(paste(getwd(),"/data_files/rhinovirus", sep = ""))
 
 # export new FCS files with sampled data, percent change, and umap axes
 to.export = cbind(my.sampled.data,umap.data,percent_change)
-desc = colnames(to.export)[-c(ncol(my.sampled.data))]
+desc = colnames(to.export)[-c((ncol(my.sampled.data)-1):ncol(my.sampled.data))]
 colnames(to.export)[1:ncol(my.sampled.data)]<-orig.names
 separate.fcs.files = split(to.export,to.export$`orig_ID`)
 for (i in 1:length(separate.fcs.files)){
