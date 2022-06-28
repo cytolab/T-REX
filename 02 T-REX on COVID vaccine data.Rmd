@@ -131,9 +131,7 @@ graphical.ratio <- (range[1] / range[2])
 test.round = round(percent_change)
 trex.plot <-
   data.frame(x = tsne.data[, 1], y = tsne.data[, 2], col = test.round)
-trex.plot$cuts = cut(trex.plot$col, c(0, 5, 15, 85, 95, 100), include.lowest = TRUE, right = FALSE)
-trex.plot$cuts = factor(trex.plot$cuts,
-                        levels = c("[15,85)", "[5,15)", "[0,5)", "[85,95)", "[95,100]"))
+trex.plot$cuts <- ifelse(trex.plot$col>=95, '[95,100]', ifelse(trex.plot$col>=85,'[85,95)', ifelse(trex.plot$col<=5,'[0,5]', ifelse(trex.plot$col<=15,'(5,15]','(15,85)'))))
 ordered_plot = trex.plot[order(trex.plot$cuts), ]
 
 # create T-REX plot
@@ -154,9 +152,9 @@ final_trex_plot <-
   scale_color_manual(
     name = "col",
     values = c(
-      "[15,85)" = "lightgray",
-      "[5,15)" = "lightskyblue",
-      "[0,5)" = "navyblue",
+      "(15,85)" = "lightgray",
+      "(5,15]" = "lightskyblue",
+      "[0,5]" = "navyblue",
       "[85,95)" = "lightcoral",
       "[95,100]" = "darkred"
     )
@@ -208,11 +206,12 @@ dev.off()
 # calculate degree of change and direction of change for individual pairwise comparison
 all.data$status <- trex.plot$cuts
 sample.table <- data.frame(sample_type,sample_id,time_comparison,total_cells = nrow(tsne.data))
-sample.table[,c(5:9)]<-summary(trex.plot$cuts)
-colnames(sample.table)[5:9]<-c( "[15,85)", "[5,15)", "[0,5)", "[85,95)", "[95,100]")
-percent = 100*(summary(trex.plot$cuts)/nrow(tsne.data))
+summary_stats<-c(sum(trex.plot$cuts == '(15,85)'),sum(trex.plot$cuts == '(5,15]'),sum(trex.plot$cuts == '[0,5]'),sum(trex.plot$cuts == '[85,95)'),sum(trex.plot$cuts == '[95,100]'))
+sample.table[,c(5:9)]<-summary_stats
+colnames(sample.table)[5:9]<-c( "(15,85)", "(5,15]", "[0,5]", "[85,95)", "[95,100]")
+percent = 100*(summary_stats/ nrow(trex.plot))
 sample.table$degree_of_change = (sum(percent[3]+percent[5]))
-sample.table$direction_of_change = (summary(trex.plot$cuts)[5]-summary(trex.plot$cuts)[3]) / (summary(trex.plot$cuts)[5]+summary(trex.plot$cuts)[3])
+sample.table$direction_of_change = (summary_stats[5]-summary_stats[3]) / (summary_stats[5]+summary_stats[3])
 
 write.csv(sample.table, paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_trex_results.csv"))
 print(sample.table)
@@ -223,7 +222,7 @@ setwd(paste(getwd(),"/data_files/covid vaccine", sep = ""))
 
 # use DBSCAN to cluster on regions of great change (5th and 95 percentiles of change)
 regions.of.interest <- all.data %>%
-  dplyr::filter(status == "[0,5)" | status == "[95,100]") 
+  dplyr::filter(status == "[0,5]" | status == "[95,100]")
 regions.of.interest.tsne = cbind(regions.of.interest$tSNE1,regions.of.interest$tSNE2)
 a = dbscan::dbscan(regions.of.interest.tsne, eps = 4,minPts = 1)
 cluster = a$cluster 
@@ -231,8 +230,8 @@ track.data = cbind(regions.of.interest,cluster)
 track.data <- track.data %>%
   filter(cluster!=0)
 
-track.data$cluster[which(track.data$status=="[0,5)")]<-paste0(track.data$cluster[which(track.data$status=="[0,5)")],"05")
-track.data$cluster[which(track.data$status=="[95,100]")]<-paste0(track.data$cluster[which(track.data$status=="[95,100]")],"95")
+track.data$cluster[which( track.data$status=="[0,5]")]<- paste0(track.data$cluster[ which(track.data$status=="[0,5]")],"05")
+track.data$cluster[which( track.data$status=="[95,100]")]<-paste0(track.data$cluster[which( track.data$status=="[95,100]")],"95")
 track.data$cluster<-as.numeric(track.data$cluster)
 
 ###### HERE ######## ADD ######
@@ -280,7 +279,7 @@ all.clusters = split(track.data,as.factor(track.data$cluster))
 counts.total  <- sapply(all.clusters, NROW)
 counts.5<-vector()
 for (i in 1:length(all.clusters)){
-  counts.5[i] = summary(all.clusters[[i]]$status)[3]}
+  counts.5[i] = sum(all.clusters[[i]][["status"]] == '[0,5]')}
 counts.95 = counts.total-counts.5
 cluster.data = as.data.frame(counts.total)
 colnames(cluster.data)<- "total_counts"
