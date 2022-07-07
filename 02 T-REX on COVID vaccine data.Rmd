@@ -195,15 +195,19 @@ print(tsne.bychannel)
 dev.off()
 
 # uncomment lines below to plot heat on markers on tsne axes
-#plot.to.output<-list() 
+# plot.to.output<-list()
 # for (i in 1:ncol(tsne.input)){
 #   color.plot <- data.frame(x = tsne.data[,1], y = tsne.data[,2], col = tsne.input[,c(i)])
 #   order.plot <- color.plot[order(color.plot$col),]
-#   print(ggplot(order.plot)+ geom_point(aes(x= x, y= y, col = col),cex = 0.1,shape = 1) + coord_fixed(ratio=graphical.ratio) + 
-#   theme_bw()+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ 
-#     labs (x = "tSNE1", y = "tSNE2", col = colnames(tsne.input)[i])+
-#   scale_color_gradientn(
-#     colours = colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(50)))}
+#   print(ggplot(order.plot) + 
+#           geom_point(aes(x = x, y = y, col = col), cex = 0.1, shape = 1) + 
+#           coord_fixed(ratio = graphical.ratio) +
+#           scale_color_gradientn(colours = colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(50)) + 
+#           labs(x = "tSNE1", y = "tSNE2", col = colnames(tsne.input)[i]) +
+#           theme_bw() + 
+#           theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+#   )
+# }
 
 # calculate degree of change and direction of change for individual pairwise comparison
 all.data$status <- trex.plot$cuts
