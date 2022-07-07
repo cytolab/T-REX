@@ -262,7 +262,7 @@ dbscan_plot <-
   geom_point(aes(x = x, y = y, color = col), cex = 1.5) + 
   scale_color_manual(values = values) + 
   guides(colour = guide_legend(override.aes = list(size = 5), nrow = 13)) +
-  labs(x = "UMAP 1", y = "UMAP 2", color = "DBSCAN Cluster") + 
+  labs(x = "UMAP 1", y = "UMAP 2", title = "DBSCAN Clusters (5th & 95th percentiles)", color = "DBSCAN Cluster") + 
   theme_bw() + 
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
