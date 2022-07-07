@@ -146,11 +146,11 @@ final_trex_plot <-
   geom_point(aes(x = x, y = y, colour = cuts), cex = 1) +
   coord_fixed(ratio = graphical.ratio) +
   scale_color_manual(
-    labels = c("\u2265 95% from first timepoint",
-               "85-95% from first timepoint",
-               "from first and second timepoints",
-               "85-95% from second timepoint",
-               "\u2265 95% from second timepoint"), 
+    labels = c("\u2265 95% from 1st timepoint",
+               "85-95% from 1st timepoint",
+               "from 1st and 2nd timepoints",
+               "85-95% from 2nd timepoint",
+               "\u2265 95% from 2nd timepoint"), 
     values = c(
       "[0,5]" = "navyblue",
       "(5,15]" = "lightskyblue",
