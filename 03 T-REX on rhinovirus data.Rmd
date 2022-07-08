@@ -1,7 +1,8 @@
 ---
 title: "T-REX Analysis on RV 001"
 author: "Sierra Barone"
-date: "07/20/2020"
+contributors: "Claire Cross, and Cass Mayeda"
+date: "07/07/2022"
 output:
   html_document:
     df_print: paged
@@ -59,6 +60,7 @@ kvalue = 60
 # look at files
 data.files <-  dir(pattern = "*.fcs")
 print(data.files)
+
 # choose index for each timepoint based on order of data.files
 first.timepoint = 1
 second.timepoint = 2
@@ -126,7 +128,6 @@ trex.plot <-
 trex.plot$cuts <- ifelse(trex.plot$col>=95, '[95,100]', ifelse(trex.plot$col>=85,'[85,95)', ifelse(trex.plot$col<=5,'[0,5]', ifelse(trex.plot$col<=15,'(5,15]','(15,85)'))))
 ordered_plot = trex.plot[order(trex.plot$cuts), ]
 
-
 # create T-REX plot
 png(
   paste(
@@ -141,21 +142,31 @@ png(
 )
 
 final_trex_plot <-
-  ggplot(ordered_plot) + geom_point(aes(x = x, y = y, colour = cuts), cex = 1) +
+  ggplot(ordered_plot) + 
+  geom_point(aes(x = x, y = y, colour = cuts), cex = 1) +
+  coord_fixed(ratio = graphical.ratio) +
   scale_color_manual(
-    name = "col",
+    labels = c("\u2265 95% from 1st timepoint",
+               "85-95% from 1st timepoint",
+               "from 1st and 2nd timepoints",
+               "85-95% from 2nd timepoint",
+               "\u2265 95% from 2nd timepoint"), 
     values = c(
-      "(15,85)" = "lightgray",
-      "(5,15]" = "lightskyblue",
       "[0,5]" = "navyblue",
+      "(5,15]" = "lightskyblue",
+      "(15,85)" = "lightgray",
       "[85,95)" = "lightcoral",
       "[95,100]" = "darkred"
     )
   ) +
-  theme_bw() + theme(panel.grid.major = element_blank(),
-                     panel.grid.minor = element_blank()) +
-  labs (x = "UMAP1", y = "UMAP2", title = paste(sample_type,"_",sample_id,"_",time_comparison," - Percent Change",sep = "")) + coord_fixed(ratio = graphical.ratio) + theme(legend.title = element_blank()) + 
-  labs(caption = "Data from Barone et al., eLife. 2021")
+  guides(color = guide_legend(override.aes = list(size = 4))) +
+  labs (x = "UMAP1", y = "UMAP2", 
+        title = paste(sample_type,"_",sample_id,"_",time_comparison," - Percent Change",sep = ""),
+        caption = "Data from Barone et al., eLife. 2021") + 
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.title = element_blank())
 
 print(final_trex_plot)
 dev.off()
@@ -168,32 +179,38 @@ setwd(paste(getwd(),"/data_files/rhinovirus", sep = ""))
 umap.bychannel <- as_tibble(umap.data) %>%
   bind_cols(transformed.data)  %>%
   gather(channel, intensity, -UMAP1, -UMAP2) %>%
-  mutate(across(channel,factor))%>%
+  mutate(across(channel,factor)) %>%
   group_split(channel) %>%
   map(
-    ~ggplot(.,aes(x= UMAP1, y= UMAP2, col = intensity)) +
-  geom_point(shape = ".",size = 8) +
-  scale_color_gradientn(
-    colours = colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(5))+
-  facet_grid(~ channel, labeller = function(x) label_value(x, multi_line = FALSE)) +
-  coord_fixed() +
-  theme_bw()+
-  theme(strip.text.x = element_text(size = 20),legend.title=element_blank()))%>%
+    ~ggplot(., aes(x = UMAP1, y = UMAP2, col = intensity)) +
+      geom_point(shape = ".", size = 8) +
+      scale_color_gradientn(
+        colours = colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(5)) +
+      facet_grid(~ channel, labeller = function(x) label_value(x, multi_line = FALSE)) +
+      coord_fixed() +
+      theme_bw() +
+      theme(strip.text.x = element_text(size = 20), 
+            legend.title=element_blank())) %>%
   plot_grid(plotlist = ., align = 'hv', ncol = 6)
 
 png(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"UMAP on transformed data.png"),height = 2000,width = 4000)
 print(umap.bychannel)
 dev.off()
+
 # uncomment lines below to plot heat on markers on umap axes
-#plot.to.output<-list() 
+# plot.to.output<-list()
 # for (i in 1:ncol(umap.input)){
 #   color.plot <- data.frame(x = umap.data[,1], y = umap.data[,2], col = umap.input[,c(i)])
 #   order.plot <- color.plot[order(color.plot$col),]
-#   print(ggplot(order.plot)+ geom_point(aes(x= x, y= y, col = col),cex = 0.1,shape = 1) + coord_fixed(ratio=graphical.ratio) + 
-#   theme_bw()+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ 
-#     labs (x = "UMAP1", y = "UMAP2", col = colnames(umap.input)[i])+
-#   scale_color_gradientn(
-#     colours = colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(50)))}
+#   print(ggplot(order.plot) + 
+#           geom_point(aes(x = x, y = y, col = col), cex = 0.1, shape = 1) + 
+#           coord_fixed(ratio = graphical.ratio) +
+#           scale_color_gradientn(colours = colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(50)) + 
+#           labs (x = "UMAP1", y = "UMAP2", col = colnames(umap.input)[i]) + 
+#           theme_bw() + 
+#           theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+#         )
+#   }
 
 # calculate degree of change and direction of change for individual pairwise comparison
 all.data$status <- trex.plot$cuts
@@ -215,7 +232,6 @@ print(sample.table)
 setwd(paste(getwd(),"/data_files/rhinovirus", sep = ""))
 
 # use DBSCAN to cluster on regions of great change (5th and 95 percentiles of change)
-
 colnames(all.data)[1:7]<-orig.names[1:7]
 regions.of.interest <- all.data %>%
   dplyr::filter(status == "[0,5]" | status == "[95,100]")
@@ -225,18 +241,23 @@ cluster = a$cluster
 track.data = cbind(regions.of.interest,cluster)
 track.data <- track.data %>%
   filter(cluster!=0)
+
 track.data$cluster[which(track.data$status=="[0,5]")]<- paste0(track.data$cluster[which(track.data$status=="[0,5]")],"05")
 track.data$cluster[which(track.data$status=="[95,100]")]<-paste0(track.data$cluster[which(track.data$status=="[95,100]")],"95")
 track.data$cluster<-as.numeric(track.data$cluster)
 
 png(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S")," DBSCAN_plot.png",sep =""),res = 200, width = 1500, height = 1500)
-dbscan_plot <- ggplot(data.frame(x = track.data$UMAP1, 
-                   y = track.data$UMAP2, 
-                   col = as.factor(track.data$cluster))) + coord_fixed(ratio = graphical.ratio) + 
-  geom_point(aes(x=x, y=y, color=col),cex = 1.5) + 
-  guides(colour = guide_legend(override.aes = list(size=5), nrow = 13)) +
-  labs(x = "UMAP 1", y = "UMAP 2",title = "DBSCAN Clusters (5th & 95th percentiles)", 
-       color = "DBSCAN Cluster") + theme_bw() + theme(legend.title = element_blank()) 
+dbscan_plot <- 
+  ggplot(data.frame(x = track.data$UMAP1, y = track.data$UMAP2, col = as.factor(track.data$cluster))) +
+  coord_fixed(ratio = graphical.ratio) + 
+  geom_point(aes(x = x, y = y, color = col), cex = 1.5) + 
+  guides(colour = guide_legend(override.aes = list(size = 5), nrow = 13)) +
+  labs(x = "UMAP 1", y = "UMAP 2",
+       title = "DBSCAN Clusters (5th & 95th percentiles)", 
+       color = "DBSCAN Cluster") + 
+  theme_bw() + 
+  theme(legend.title = element_blank()) 
+
 print(dbscan_plot)
 dev.off()
 dbscan_plot
