@@ -190,7 +190,7 @@ umap.bychannel <- as_tibble(umap.data) %>%
       coord_fixed() +
       theme_bw() +
       theme(strip.text.x = element_text(size = 20),
-            legend.title=element_blank())) %>%
+            legend.title = element_blank())) %>%
   plot_grid(plotlist = ., align = 'hv', ncol = 8)
 
 png(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"UMAP on transformed data.png"),height = 2000,width = 4000)
