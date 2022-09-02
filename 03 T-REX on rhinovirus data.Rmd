@@ -2,7 +2,7 @@
 title: "T-REX Analysis on RV 001"
 author: "Sierra Barone"
 contributors: "Claire Cross, and Cass Mayeda"
-date: "07/07/2022"
+date: "09/02/2021"
 output:
   html_document:
     df_print: paged
@@ -61,18 +61,18 @@ kvalue = 60
 data.files <-  dir(pattern = "*.fcs")
 print(data.files)
 
-# choose index for each timepoint based on order of data.files
-first.timepoint = 1
-second.timepoint = 2
+# choose index for each dataset based on order of data.files
+first.dataset = 1
+second.dataset = 2
 
 # combine paired samples
-first.timepoint.data = as.data.frame(lapply(lapply(data.files[[first.timepoint]], read.FCS), exprs))
-first.timepoint.data$orig_ID = first.timepoint
-first.timepoint.data$File_ID = 1
-second.timepoint.data = as.data.frame(lapply(lapply(data.files[[second.timepoint]], read.FCS), exprs))
-second.timepoint.data$orig_ID = second.timepoint
-second.timepoint.data$File_ID = 2
-paired.data = rbind(first.timepoint.data,second.timepoint.data)
+first.dataset.data = as.data.frame(lapply(lapply(data.files[[first.dataset]], read.FCS), exprs))
+first.dataset.data$orig_ID = first.dataset
+first.dataset.data$File_ID = 1
+second.dataset.data = as.data.frame(lapply(lapply(data.files[[second.dataset]], read.FCS), exprs))
+second.dataset.data$orig_ID = second.dataset
+second.dataset.data$File_ID = 2
+paired.data = rbind(first.dataset.data, second.dataset.data)
 orig.names <- colnames(paired.data)
 colnames(paired.data)[1:(length(paired.data) - 2)] <- as.character(read.FCS(data.files[[1]])@parameters@data[["desc"]])
 ```
@@ -146,11 +146,11 @@ final_trex_plot <-
   geom_point(aes(x = x, y = y, colour = cuts), cex = 1) +
   coord_fixed(ratio = graphical.ratio) +
   scale_color_manual(
-    labels = c("\u2265 95% from 1st timepoint",
-               "85-95% from 1st timepoint",
-               "from 1st and 2nd timepoints",
-               "85-95% from 2nd timepoint",
-               "\u2265 95% from 2nd timepoint"), 
+    labels = c("\u2265 95% from 1st dataset",
+               "85-95% from 1st dataset",
+               "from 1st and 2nd datasets",
+               "85-95% from 2nd dataset",
+               "\u2265 95% from 2nd dataset"), 
     values = c(
       "[0,5]" = "navyblue",
       "(5,15]" = "lightskyblue",
