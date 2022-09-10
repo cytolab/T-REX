@@ -32,7 +32,6 @@ knitr::opts_chunk$set(echo = TRUE)
 # BiocManager::install("flowCore")
 # BiocManager::install("Biobase")
 
-
 # load packages
 library(flowCore)
 library(uwot)
@@ -47,66 +46,78 @@ library(dplyr)
 library(purrr)
 library(cowplot)
 
+# load TREX functions from local folder 
+source("R/TREX.R")
+```
+
+```{r setup, read in files}
+
+# setup sample and T-REX info
+# output_filename = "_T-REX"
+# sample_type = "COV"
+# sample_id = "35"
+# time_comparison = "0v4" 
+# kvalue = 60
+
+
 # set working directory 
 setwd(paste(getwd(),"/data_files/brodin covid", sep = ""))
 
-# setup sample and T-REX info
-output_filename = "_T-REX"
-sample_type = "COV"
-sample_id = "35"
-time_comparison = "0v4" 
-kvalue = 60
+# read in files 
+data.filenames = dir(pattern = "*.fcs")
+first.dataset = as.data.frame(lapply(lapply(data.filenames[[1]], read.FCS), exprs))
+first.dataset$file_ID = 1
+second.dataset = as.data.frame(lapply(lapply(data.filenames[[2]], read.FCS), exprs))
+second.dataset$file_ID = 2
 
-# look at files
-data.files <-  dir(pattern = "*.fcs")
-print(data.files)
-
-# choose index for each dataset based on order of data.files
-first.dataset = 1
-second.dataset = 2
-
-# combine paired samples
-first.dataset.data = as.data.frame(lapply(lapply(data.files[[first.dataset]], read.FCS), exprs))
-first.dataset.data$orig_ID = first.dataset
-first.dataset.data$File_ID = 1
-second.dataset.data = as.data.frame(lapply(lapply(data.files[[second.dataset]], read.FCS), exprs))
-second.dataset.data$orig_ID = second.dataset
-second.dataset.data$File_ID = 2
-paired.data = rbind(first.dataset.data, second.dataset.data)
-orig.names <- colnames(paired.data)
-colnames(paired.data)[1:(length(paired.data) - 2)] <- as.character(read.FCS(data.files[[1]])@parameters@data[["desc"]])
+# rename columns with marker names, rather than measured channels 
+colnames(first.dataset)[1:(length(first.dataset) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
+colnames(second.dataset)[1:(length(second.dataset) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
 ```
 
-```{r equal_sampling}
-# set seed and equally sample based on limiting sample
+```{r equal sampling}
+# get equally sampled populations from both datasets 
+smaller_sample = nrow(first.dataset) 
+if (nrow(second.dataset) < smaller_sample) { 
+  smaller_sample <- nrow(second.dataset) 
+}
 set.seed(1)
-files.to.sample = split(paired.data,paired.data$`File_ID`)
-sampled.data <- list()
-for (i in 1: length(files.to.sample)){
-    sampled.data[[i]] = as.data.frame(files.to.sample[[i]][sample(nrow(files.to.sample[[i]]), min(sapply(files.to.sample, nrow))), ])}
-my.sampled.data = as.data.frame(do.call(rbind, sampled.data))
+sampled.data = rbind(first.dataset[sample(nrow(first.dataset), smaller_sample), ], second.dataset[sample(nrow(second.dataset), smaller_sample), ])
 ```
 
-```{r scaling_and_filtering}
-# choose markers to make low dimensional projection of the data and scale them accordingly 
-#colnames(my.sampled.data)   
-my.chosen.sampled.data = my.sampled.data[,c(3,9:14,19:31,33:54,57:61)]
-#colnames(my.chosen.sampled.data) 
-transformed.data = as.data.frame(t(apply(my.chosen.sampled.data, 1, function(x) asinh(x/5))))
-colnames(transformed.data) 
-umap.input = transformed.data
+```{r choose features, scale data}
+# choose markers to make low dimensional embedding 
+chosen.data = sampled.data[, c(3,9:14,19:31,33:54,57:61)]
+
+# scale data 
+transformed.data = asinh(chosen.data/5) 
 ```
 
 ```{r UMAP}
 setwd(paste(getwd(),"/data_files/brodin covid", sep = ""))
-
-# run UMAP amd save model
-myumap <- umap(umap.input, ret_model = TRUE, verbose = TRUE)
 dir.create("./output files/")
+
+# create UMAP, low dimensional embedding 
+myumap <- umap(transformed.data, ret_model = TRUE, verbose = TRUE)
+
+# uncomment to save UMAP 
 #save_uwot(myumap, paste0(strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_umap_model_results"))
+
 umap.data = as.data.frame(myumap$embedding)
 colnames(umap.data) <- c("UMAP1", "UMAP2")
 ```
+
+```{r}
+source("R/TREX.R")
+
+
+
+TREX(
+  first.dataset,
+  second.dataset,
+)
+```
+
 
 ```{r KNN}
 setwd(paste(getwd(),"/data_files/brodin covid", sep = ""))
