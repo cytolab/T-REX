@@ -1,7 +1,7 @@
 ---
 title: "T-REX Analysis on COVID Data"
 author: "Sierra Barone"
-contributors: "Claire Cross, and Cass Mayeda"
+contributors: "Claire Cross, Hannah Thirman, and Cass Mayeda"
 date: "09/02/2022"
 output:
   html_document:
@@ -35,13 +35,9 @@ knitr::opts_chunk$set(echo = TRUE)
 # load packages
 library(flowCore)
 library(uwot)
-library(FNN)
-library(ggplot2)
-library(dbscan)
 library(cytoMEM)
 library(tidyverse)
 library(Biobase)
-library(RColorBrewer)
 library(dplyr)
 library(purrr)
 library(cowplot)
@@ -51,14 +47,6 @@ source("R/TREX.R")
 ```
 
 ```{r setup, read in files}
-
-# setup sample and T-REX info
-# output_filename = "_T-REX"
-# sample_type = "COV"
-# sample_id = "35"
-# time_comparison = "0v4" 
-# kvalue = 60
-
 
 # set working directory 
 setwd(paste(getwd(),"/data_files/brodin covid", sep = ""))
@@ -82,7 +70,10 @@ if (nrow(second.dataset) < smaller_sample) {
   smaller_sample <- nrow(second.dataset) 
 }
 set.seed(1)
-sampled.data = rbind(first.dataset[sample(nrow(first.dataset), smaller_sample), ], second.dataset[sample(nrow(second.dataset), smaller_sample), ])
+sampled.data = as.data.frame(rbind(
+  first.dataset[sample(nrow(first.dataset), smaller_sample), ], 
+  second.dataset[sample(nrow(second.dataset), smaller_sample), ]
+))
 ```
 
 ```{r choose features, scale data}
@@ -97,96 +88,26 @@ transformed.data = asinh(chosen.data/5)
 setwd(paste(getwd(),"/data_files/brodin covid", sep = ""))
 dir.create("./output files/")
 
-# create UMAP, low dimensional embedding 
+# create UMAP (low dimensional embedding)
 myumap <- umap(transformed.data, ret_model = TRUE, verbose = TRUE)
 
 # uncomment to save UMAP 
-#save_uwot(myumap, paste0(strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_umap_model_results"))
+# save_uwot(myumap, paste0(strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_umap_model_results"))
 
 umap.data = as.data.frame(myumap$embedding)
 colnames(umap.data) <- c("UMAP1", "UMAP2")
 ```
 
-```{r}
+```{r run TREX}
 source("R/TREX.R")
 
-
-
-TREX(
-  first.dataset,
-  second.dataset,
-)
+my.TREX <- TREX(embedding.data = cbind(umap.data, file_ID = sampled.data$file_ID))
 ```
 
-
-```{r KNN}
+```{r markers heatmap}  
 setwd(paste(getwd(),"/data_files/brodin covid", sep = ""))
 
-# KNN search per cell 
-neighbor_index = knnx.index(umap.data,umap.data,k=kvalue)
-neighbor_index[neighbor_index <= nrow(umap.data)/2] <- 0
-neighbor_index[neighbor_index > nrow(umap.data)/2] <- 1
-# calculate percent change in each KNN region
-percent_change = (rowSums(neighbor_index) / kvalue * 100)
-
-# binning and plot info
-all.data = cbind(my.sampled.data, umap.data,percent_change)
-range <- apply(apply(umap.data, 2, range), 2, diff)
-graphical.ratio <- (range[1] / range[2])
-test.round = round(percent_change)
-trex.plot <-
-  data.frame(x = umap.data[, 1], y = umap.data[, 2], col = test.round)
-trex.plot$cuts <- ifelse(trex.plot$col>=95, '[95,100]', ifelse(trex.plot$col>=85,'[85,95)', ifelse(trex.plot$col<=5,'[0,5]', ifelse(trex.plot$col<=15,'(5,15]','(15,85)'))))
-ordered_plot = trex.plot[order(trex.plot$cuts), ]
-
-# create T-REX plot
-png(
-  paste(
-    "./output files/",
-    strftime(Sys.time(), "%Y-%m-%d_%H%M%S"),
-    " blue red TREX plot.png",
-    sep = ""
-  ),
-  res = 200,
-  width = 1500,
-  height = 1500
-)
-
-final_trex_plot <-
-  ggplot(ordered_plot) + 
-  geom_point(aes(x = x, y = y, colour = cuts), cex = 1) +
-  coord_fixed(ratio = graphical.ratio) +
-  scale_color_manual(
-    labels = c("\u2265 95% from 1st dataset",
-               "85-95% from 1st dataset",
-               "from 1st and 2nd dataset",
-               "85-95% from 2nd dataset",
-               "\u2265 95% from 2nd dataset"), 
-    values = c(
-      "[0,5]" = "navyblue",
-      "(5,15]" = "lightskyblue",
-      "(15,85)" = "lightgray",
-      "[85,95)" = "lightcoral",
-      "[95,100]" = "darkred"
-    )
-  ) +
-  guides(color = guide_legend(override.aes = list(size = 4))) + 
-  labs(x = "UMAP1", y = "UMAP2",
-       title = paste(sample_type,"_",sample_id,"_",time_comparison," - Percent Change",sep = ""),
-       caption = "Data from Brodin lab in Rodriguez et al., Cell Rep Med. 2020") +
-  theme_bw() + 
-  theme(panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        legend.title = element_blank())
-
-print(final_trex_plot)
-dev.off()
-final_trex_plot
-```
-  
-```{r trex_results}  
-setwd(paste(getwd(),"/data_files/brodin covid", sep = ""))
-
+# create heatmaps of every marker across UMAP axes 
 umap.bychannel <- as_tibble(umap.data) %>%
   bind_cols(transformed.data)  %>%
   gather(channel, intensity, -UMAP1, -UMAP2) %>%
@@ -207,105 +128,56 @@ umap.bychannel <- as_tibble(umap.data) %>%
 png(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"UMAP on transformed data.png"),height = 2000,width = 4000)
 print(umap.bychannel)
 dev.off()
-
-# uncomment lines below to plot heat on markers on umap axes
-# plot.to.output<-list()
-# for (i in 1:ncol(umap.input)){
-#   color.plot <- data.frame(x = umap.data[,1], y = umap.data[,2], col = umap.input[,c(i)])
-#   order.plot <- color.plot[order(color.plot$col),]
-#   print(ggplot(order.plot) + 
-#           geom_point(aes(x = x, y = y, col = col), cex = 0.1, shape = 1) + 
-#           coord_fixed(ratio = graphical.ratio) +
-#           scale_color_gradientn(colours = colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(50)) + 
-#           labs(x = "UMAP1", y = "UMAP2", col = colnames(umap.input)[i]) +
-#           theme_bw() + 
-#           theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
-#         )
-# }
-
-# calculate degree of change and direction of change for individual pairwise comparison
-all.data$status <- trex.plot$cuts
-sample.table <- data.frame(sample_type,sample_id,time_comparison,total_cells = nrow(umap.data))
-summary_stats<-c(sum(trex.plot$cuts == '(15,85)'),sum(trex.plot$cuts == '(5,15]'),sum(trex.plot$cuts == '[0,5]'),sum(trex.plot$cuts == '[85,95)'),sum(trex.plot$cuts == '[95,100]'))
-
-sample.table[,c(5:9)]<-summary_stats
-colnames(sample.table)[5:9]<-c( "(15,85)", "(5,15]", "[0,5]", "[85,95)", "[95,100]")
-percent = 100*(summary_stats/ nrow(trex.plot))
-
-sample.table$degree_of_change = (sum(percent[3]+percent[5]))
-sample.table$direction_of_change = (summary_stats[5]-summary_stats[3]) / (summary_stats[5]+summary_stats[3])
-
-write.csv(sample.table, paste("/output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_trex_results.csv"))
-print(sample.table)
 ```
 
 ```{r clustering}
-setwd(paste(getwd(),"/data_files/brodin covid", sep = ""))
+source("R/TREX.R")
 
-# use DBSCAN to cluster on regions of great change (5th and 95 percentiles of change)
-regions.of.interest <- all.data %>%
-  dplyr::filter(status == "[0,5]" | status == "[95,100]")
-regions.of.interest.umap = cbind(regions.of.interest$UMAP1,regions.of.interest$UMAP2)
-a = dbscan::dbscan(regions.of.interest.umap, eps = 0.3,minPts = 1)
-cluster = a$cluster 
-track.data = cbind(regions.of.interest,cluster)
-track.data <- track.data %>%
-  filter(cluster!=0)
-
-track.data$cluster[which( track.data$status=="[0,5]")]<- paste0(track.data$cluster[which(track.data$status=="[0,5]")],"05")
-track.data$cluster[which( track.data$status=="[95,100]")]<-paste0(track.data$cluster[which( track.data$status=="[95,100]")],"95")
-track.data$cluster<-as.numeric(track.data$cluster)
-cluster.data = split(track.data,track.data$cluster)
-median.percent.change = lapply(cluster.data, function(x) median(x[,which(colnames(track.data)=="percent_change")]))
-mean.percent.change = lapply(cluster.data, function(x) mean(x[,which(colnames(track.data)=="percent_change")]))
-write.csv(mean.percent.change,paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S")," DBSCAN_cluster_average_percent_change.csv",sep =""))
-
-
-library(RColorBrewer)
-qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
-col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
-values = sample(col_vector)
-
-png(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S")," DBSCAN_plot.png",sep =""),res = 200, width = 1500, height = 1500)
-dbscan_plot <- 
-  ggplot(data.frame(x = track.data$UMAP1, y = track.data$UMAP2, col = as.factor(track.data$cluster))) + 
-  coord_fixed(ratio = graphical.ratio) + 
-  geom_point(aes(x = x, y = y, color = col), cex = 1.5) + 
-  scale_color_manual(values = values) + 
-  guides(colour = guide_legend(override.aes = list(size = 5), nrow = 13)) +
-  labs(x = "UMAP 1", y = "UMAP 2", title = "DBSCAN Clusters (5th & 95th percentiles)", color = "DBSCAN Cluster") + 
-  theme_bw() + 
-  theme(panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        legend.title = element_blank())
-
-print(dbscan_plot)
-dev.off()
-dbscan_plot
+my.clusters <- TREX_cluster(my.TREX)
 ```
 
 ```{r MEM}
 setwd(paste(getwd(),"/data_files/brodin covid", sep = ""))
 
 # run MEM on DBSCAN clusters split by 95th and 5th percentiles of change in KNN region
-MEM.data = track.data[,c(3,9:14,19:31,33:54,57:61,ncol(track.data))]
+MEM.data = track.data[, c(3,9:14,19:31,33:54,57:61,ncol(track.data))]
 MEM.data = MEM.data[order(MEM.data$cluster),]
-MEM.values.KNN = MEM(MEM.data, transform = TRUE, cofactor = 5,
-                     choose.markers = FALSE, markers = "all", choose.ref = FALSE, zero.ref = TRUE, rename.markers = FALSE,
-                     new.marker.names = "none", file.is.clust = FALSE, add.fileID = FALSE, IQR.thresh = NULL,scale.matrix = "arcsinh",scale.factor = 1)
-build_heatmaps(MEM.values.KNN, cluster.MEM = "none", cluster.medians = "none",
-               display.thresh = 1,  output.files = TRUE, labels = FALSE)
+MEM.values.KNN = MEM(
+  MEM.data, 
+  transform = TRUE, 
+  cofactor = 5,
+  choose.markers = FALSE, 
+  markers = "all", 
+  choose.ref = FALSE, 
+  zero.ref = TRUE, 
+  rename.markers = FALSE,
+  new.marker.names = "none", 
+  file.is.clust = FALSE, 
+  add.fileID = FALSE, 
+  IQR.thresh = NULL,
+  scale.matrix = "arcsinh",
+  scale.factor = 1
+)
+build_heatmaps(
+  MEM.values.KNN, 
+  cluster.MEM = "none", 
+  cluster.medians = "none",
+  display.thresh = 1, 
+  output.files = TRUE, 
+  labels = FALSE
+)
 all.clusters = split(track.data,as.factor(track.data$cluster))
 counts.total  <- sapply(all.clusters, NROW)
-counts.5<-vector()
+counts.5 <- vector()
 for (i in 1:length(all.clusters)){
-  counts.5[i] = sum(all.clusters[[i]][["status"]] == '[0,5]')}
-counts.95 = counts.total-counts.5
+  counts.5[i] = sum(all.clusters[[i]][["status"]] == '[0,5]')
+}
+counts.95 = counts.total - counts.5
 cluster.data = as.data.frame(counts.total)
-colnames(cluster.data)<- "total_counts"
-cluster.data$counts_5<-counts.5
-cluster.data$counts_95<-counts.95
-write.csv(cluster.data,paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S")," DBSCAN_cluster_percentiles_counts_MEM.csv",sep =""))
+colnames(cluster.data) <- "total_counts"
+cluster.data$counts_5 <- counts.5
+cluster.data$counts_95 <- counts.95
+write.csv(cluster.data, paste0("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M"), " DBSCAN_cluster_percentiles_counts_MEM.csv"))
 print(cluster.data)
 ```
 
@@ -313,7 +185,7 @@ print(cluster.data)
 setwd(paste(getwd(),"/data_files/brodin covid", sep = ""))
 
 # export new FCS files with sampled data, percent change, and umap axes
-to.export = cbind(my.sampled.data,umap.data,percent_change)
+to.export = cbind(transformed.data, umap.data, percent.change)
 desc = colnames(to.export)[-c(ncol(my.sampled.data),(ncol(my.sampled.data)-1))]
 colnames(to.export)[1:ncol(my.sampled.data)]<-orig.names
 separate.fcs.files = split(to.export,to.export$`orig_ID`)
