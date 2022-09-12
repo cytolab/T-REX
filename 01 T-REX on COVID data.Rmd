@@ -46,8 +46,17 @@ library(cowplot)
 source("R/TREX.R")
 ```
 
-```{r setup, read in files}
+```{r setup}
+# choose an output directory 
+output_dir = "TREX_output/"
+output_location = "data_files/brodin covid/"
+if (!file.exists(paste0(output_location, output_dir))) {
+  dir.create(paste0(output_location, output_dir))
+}
+```
 
+
+```{r read in files}
 # set working directory 
 setwd(paste(getwd(),"/data_files/brodin covid", sep = ""))
 
@@ -85,14 +94,11 @@ transformed.data = asinh(chosen.data/5)
 ```
 
 ```{r UMAP}
-setwd(paste(getwd(),"/data_files/brodin covid", sep = ""))
-dir.create("./output files/")
-
 # create UMAP (low dimensional embedding)
 myumap <- umap(transformed.data, ret_model = TRUE, verbose = TRUE)
 
-# uncomment to save UMAP 
-# save_uwot(myumap, paste0(strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_umap_model_results"))
+# uncomment the line below to save UMAP 
+# save_uwot(myumap, paste0(getwd(), "/", output_location, output_dir, strftime(Sys.time(),"%Y-%m-%d_%H_%M"),"_umap_results"))
 
 umap.data = as.data.frame(myumap$embedding)
 colnames(umap.data) <- c("UMAP1", "UMAP2")
@@ -101,12 +107,11 @@ colnames(umap.data) <- c("UMAP1", "UMAP2")
 ```{r run TREX}
 source("R/TREX.R")
 
+setwd(paste0(getwd(), "/", output_location, output_dir))
 my.TREX <- TREX(embedding.data = cbind(umap.data, file_ID = sampled.data$file_ID))
 ```
 
 ```{r markers heatmap}  
-setwd(paste(getwd(),"/data_files/brodin covid", sep = ""))
-
 # create heatmaps of every marker across UMAP axes 
 umap.bychannel <- as_tibble(umap.data) %>%
   bind_cols(transformed.data)  %>%
@@ -125,7 +130,11 @@ umap.bychannel <- as_tibble(umap.data) %>%
             legend.title = element_blank())) %>%
   plot_grid(plotlist = ., align = 'hv', ncol = 8)
 
-png(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"UMAP on transformed data.png"),height = 2000,width = 4000)
+png(
+  paste0(output_location, output_dir, strftime(Sys.time(),"%Y-%m-%d_%H_%M"), "_marker_heat.png"),
+  height = 2000,
+  width = 4000
+)
 print(umap.bychannel)
 dev.off()
 ```
@@ -133,17 +142,20 @@ dev.off()
 ```{r clustering}
 source("R/TREX.R")
 
-my.clusters <- TREX_cluster(my.TREX)
+setwd(paste0(getwd(), "/", output_location, output_dir))
+# my.clusters <- TREX_cluster(my.TREX)
+my.clusters <- TREX_cluster(my.TREX, transformed.data)
 ```
 
 ```{r MEM}
-setwd(paste(getwd(),"/data_files/brodin covid", sep = ""))
+setwd(paste0(getwd(),"/data_files/brodin covid"))
 
-# run MEM on DBSCAN clusters split by 95th and 5th percentiles of change in KNN region
-MEM.data = track.data[, c(3,9:14,19:31,33:54,57:61,ncol(track.data))]
-MEM.data = MEM.data[order(MEM.data$cluster),]
+# run MEM on DBSCAN clusters 
+# MEM.data = track.data[, c(3,9:14,19:31,33:54,57:61,ncol(track.data))]
+MEM.input = my.clusters[, c(5:ncol(my.clusters))]
+MEM.input <- MEM.input[order(MEM.input$cluster), ]
 MEM.values.KNN = MEM(
-  MEM.data, 
+  MEM.input, 
   transform = TRUE, 
   cofactor = 5,
   choose.markers = FALSE, 
@@ -166,7 +178,10 @@ build_heatmaps(
   output.files = TRUE, 
   labels = FALSE
 )
-all.clusters = split(track.data,as.factor(track.data$cluster))
+```
+
+```{r}
+all.clusters = split(my.clusters, as.factor(my.clusters$cluster))
 counts.total  <- sapply(all.clusters, NROW)
 counts.5 <- vector()
 for (i in 1:length(all.clusters)){
@@ -177,13 +192,11 @@ cluster.data = as.data.frame(counts.total)
 colnames(cluster.data) <- "total_counts"
 cluster.data$counts_5 <- counts.5
 cluster.data$counts_95 <- counts.95
-write.csv(cluster.data, paste0("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M"), " DBSCAN_cluster_percentiles_counts_MEM.csv"))
+write.csv(cluster.data, paste0(output_location, output_dir, strftime(Sys.time(),"%Y-%m-%d_%H_%M"), "_DBSCAN_cluster_percentiles_counts_MEM.csv"))
 print(cluster.data)
 ```
 
 ```{r export_FCS_files}
-setwd(paste(getwd(),"/data_files/brodin covid", sep = ""))
-
 # export new FCS files with sampled data, percent change, and umap axes
 to.export = cbind(transformed.data, umap.data, percent.change)
 desc = colnames(to.export)[-c(ncol(my.sampled.data),(ncol(my.sampled.data)-1))]
@@ -198,8 +211,10 @@ metadata$minRange <- apply(mat.input, 2, min)
 metadata$maxRange <- apply(mat.input, 2, max)
 input.flowframe <- new("flowFrame", exprs=mat.input,parameters = AnnotatedDataFrame(metadata))  
 newname  = str_remove(data.files[i], ".fcs")
-new.filename = paste0("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_",newname,"_T-REX.fcs",sep="")
-write.FCS(input.flowframe,filename = new.filename)
+new.filename = paste0(output_location, output_dir, strftime(Sys.time(),"%Y-%m-%d_%H_%M"), "_", newname, "_TREX.fcs")
+# needs testing ^ 
+
+write.FCS(input.flowframe, filename = new.filename)
 print(paste("FCS file ",i," done", sep = ""))}
 
 # print session information
