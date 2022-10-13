@@ -46,7 +46,16 @@ library(cowplot)
 source("R/TREX.R")
 ```
 
-```{r setup, read in files}
+```{r setup}
+# choose an output directory 
+output_dir = "TREX_output/"
+output_location = "data_files/brodin covid/"
+if (!file.exists(paste0(output_location, output_dir))) {
+  dir.create(paste0(output_location, output_dir))
+}
+```
+
+```{r read in files}
 # set working directory 
 setwd(paste0(getwd(),"/data_files/brodin covid"))
 
@@ -89,13 +98,12 @@ transformed.data = asinh(chosen.data/5)
 
 ```{r UMAP}
 setwd(paste0(getwd(),"/data_files/brodin covid"))
-dir.create("./output files/")
 
 # create UMAP (low dimensional embedding)
 myumap <- umap(transformed.data, ret_model = TRUE, verbose = TRUE)
 
-# uncomment to save UMAP 
-# save_uwot(myumap, paste0(strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_umap_model_results"))
+# uncomment the line below to save UMAP 
+# save_uwot(myumap, paste0(getwd(), "/", output_location, output_dir, strftime(Sys.time(),"%Y-%m-%d_%H_%M"),"_umap_results"))
 
 umap.data = as.data.frame(myumap$embedding)
 colnames(umap.data) <- c("UMAP1", "UMAP2")
@@ -118,8 +126,6 @@ TREX_plot(
 ```
 
 ```{r markers heatmap}  
-setwd(paste(getwd(),"/data_files/brodin covid/output files", sep = ""))
-
 # create heatmaps of every marker across UMAP axes 
 umap.bychannel <- as_tibble(umap.data) %>%
   bind_cols(transformed.data)  %>%
@@ -138,7 +144,11 @@ umap.bychannel <- as_tibble(umap.data) %>%
             legend.title = element_blank())) %>%
   plot_grid(plotlist = ., align = 'hv', ncol = 8)
 
-png(paste(strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"UMAP on transformed data.png"), height = 2000, width = 4000)
+png(
+  paste0(output_location, output_dir, strftime(Sys.time(),"%Y-%m-%d_%H_%M"), "_marker_heat.png"),
+  height = 2000,
+  width = 4000
+)
 print(umap.bychannel)
 dev.off()
 ```
@@ -154,10 +164,10 @@ my.clusters <- TREX_cluster(my.TREX, transformed.data)
 # it is not used in the calculation of TREX 
 ```
 
-```{r run MEM}
-setwd(paste0(getwd(),"/data_files/brodin covid/"))
+```{r MEM}
+setwd(paste0(getwd(),"/data_files/brodin covid"))
 
-# run MEM on DBSCAN clusters split by 95th and 5th percentiles of change in KNN region
+# run MEM on DBSCAN clusters 
 MEM.input = my.clusters[, c(5:ncol(my.clusters))]
 MEM.input <- MEM.input[order(MEM.input$cluster), ]
 MEM.values.KNN = MEM(
@@ -225,6 +235,8 @@ for (i in 1:length(separate.fcs.files)) {
   write.FCS(input.flowframe,filename = new.filename)
   print(paste("FCS file ",i," done", sep = ""))
 }
+
+# needs testing ^ 
 
 # print session information
 sessionInfo()

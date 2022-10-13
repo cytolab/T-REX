@@ -15,7 +15,9 @@ TREX <- function(embedding.data,                   # dataframe, 2 columns of low
   
   binned.data = TREX_bin(embedding.data, kvalue, bins)
   
-  # TREX_stats(binned.data)
+  TREX_stats(binned.data)
+  
+  TREX_plot(binned.data)
 
   return(binned.data)
 }
@@ -65,7 +67,7 @@ TREX_plot <- function(binned.data,
   # select a palette based on number of bins 
   if (length(bins) == 5) {
     bin.colors = default_colors
-  } else if(length(bins) == )
+  } else if(length(bins) == 13) {}
 
   names(bin.colors) <- bins
   
@@ -90,7 +92,7 @@ TREX_plot <- function(binned.data,
   
   # save & export plot as PNG
   ggsave(
-    paste0(strftime(Sys.time(), "%Y-%m-%d_%H%M"), "_TREX_plot.png"), 
+    paste0(strftime(Sys.time(), "%Y-%m-%d_%H_%M"), "_TREX_plot.png"), 
     width = 8, 
     height = 8
   )
@@ -114,14 +116,14 @@ TREX_stats <- function(binned.data) {
   sample.table$direction_of_change = (sums[5] - sums[3]) / (sums[5] + sums[3])
   
   # export stats as CSV
-  write.csv(sample.table, paste0(strftime(Sys.time(),"%Y-%m-%d_%H%M"), "_TREX_stats.csv"))
+  write.csv(sample.table, paste0(strftime(Sys.time(),"%Y-%m-%d_%H_%M"), "_TREX_stats.csv"))
   
   return(sample.table) 
 }
 
 # use DBSCAN to cluster on regions of great change (5th and 95 percentiles of change)
-TREX_cluster <- function(binned.data, 
-                         marker.data = NULL) {
+TREX_cluster <- function(binned.data,                   # output from TREX() or TREX_bin()
+                         marker.data = NULL) {          # same nrow as binned.data, for use downstream 
 
   if (!is.null(marker.data)) {
     binned.data <- cbind(binned.data, marker.data)
@@ -129,12 +131,14 @@ TREX_cluster <- function(binned.data,
   
   regions.of.interest <- binned.data %>%
     dplyr::filter(cuts == "[0,5]" | cuts == "[95,100]")
+
   db.result = dbscan::dbscan(regions.of.interest[, 1:2], eps = 0.3, minPts = 1)
   track.data = cbind(regions.of.interest, cluster = db.result$cluster)
   track.data <- track.data %>%
     filter(cluster != 0)
   
   cluster.data = split(track.data, track.data$cluster)
+  
   median.percent.change = lapply(cluster.data, function(x) median(x[, which(colnames(track.data) == "percent.change")]))
   mean.percent.change = lapply(cluster.data, function(x) mean(x[, which(colnames(track.data) == "percent.change")]))
   write.csv(mean.percent.change, paste0(strftime(Sys.time(),"%Y-%m-%d_%H%M"),"_cluster_ave_percent_change.csv"))
@@ -163,7 +167,7 @@ TREX_cluster <- function(binned.data,
 
   # save & export plot as PNG
   ggsave(
-    paste0(strftime(Sys.time(), "%Y-%m-%d_%H%M"), "_DBSCAN_plot.png"), 
+    paste0(strftime(Sys.time(), "%Y-%m-%d_%H_%M"), "_DBSCAN_plot.png"), 
     width = 8, 
     height = 8
   )
