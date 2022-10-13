@@ -109,13 +109,39 @@ umap.data = as.data.frame(myumap$embedding)
 colnames(umap.data) <- c("UMAP1", "UMAP2")
 ```
 
+```{r}
+# generate bin sequences (remove later)
+
+fifty_bins = vector()
+for (i in seq(from = 0, to = 99, by = 2)) {
+  this_str = paste0("[",i,",",i + 2,")")
+  fifty_bins <- append(fifty_bins, this_str)
+}
+fifty_bins[length(fifty_bins)] <- "[98,100]"
+```
+
+
 ```{r run TREX}
 source("R/TREX.R")
 setwd(paste0(getwd(),"/data_files/brodin covid/output files"))
 
 my.TREX <- TREX(
-  embedding.data = cbind(umap.data, file_ID = sampled.data$file_ID)
-  # bins = c('[0,5]','(5,15]','(15,85]','[85,95)','[95,100]')
+  embedding.data = cbind(umap.data, file_ID = sampled.data$file_ID),
+  
+  # Hannah's extended bins 
+  # bins = c('[0,5)','[5,15)','[15,25)','[25,37.5)','[37.5,42.5)','[42.5,47.5)','[47.5,52.5)',
+  #          '[52.5,57.5)','[57.5,62.5)','[62.5,75)','[75,85)','[85,95)','[95,100]')
+  
+  # 19 bins to test extended colors 
+  # bins = c('[0,5)','[5,10)','[10,15)','[15,20)','[20,25)','[25,30)','[30,35)',
+  #          '[35,40)','[40,45)','[45,55)','[55,60)','[60,65)','[65,70)',
+  #          '[70,75]','[75,80)','[80,85)','[85,90)','[90,95)','[95,100]')
+  
+  # larger # bins
+  # bins = fifty_bins
+  
+  # even # of bins 
+  bins = c('[0,5]','(5,15]','(15,35]','(35,85)','[85,95)','[95,100]')
 )
 
 TREX_plot(
@@ -214,8 +240,6 @@ print(cluster.data)
 
 ```{r export_FCS_files}
 setwd(paste0(getwd(),"/data_files/brodin covid/output files"))
-
-# NOT UPDATED 
 
 # export new FCS files with sampled data, percent change, and umap axes
 to.export = cbind(transformed.data, umap.data, my.TREX$percent.change)

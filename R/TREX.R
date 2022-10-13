@@ -15,9 +15,7 @@ TREX <- function(embedding.data,                   # dataframe, 2 columns of low
   
   binned.data = TREX_bin(embedding.data, kvalue, bins)
   
-  TREX_stats(binned.data)
-  
-  TREX_plot(binned.data)
+  # TREX_stats(binned.data)
 
   return(binned.data)
 }
@@ -37,7 +35,7 @@ TREX_bin <- function(embedding.data,
   # binning 
   binned.data <- data.frame(x = embedding.data[, 1], y = embedding.data[, 2], percent.change = round(percent.change))
   binned.data$cuts <- wafflecut(binned.data$percent.change, bins)
-  
+
   return(binned.data)
 }
 
@@ -49,15 +47,21 @@ TREX_plot <- function(binned.data,
   bins = levels(binned.data$cuts)
   
   # reorder bins so that unchanging areas are on the bottom geom_layer, and regions of interest are on top 
-  center.indx = round(length(bins)/2, 0) + 1
-  bin.levels = bins[center.indx]
-  for (i in 1:(center.indx - 1)) {
-    bin.levels <- append(bin.levels, bins[center.indx - i])
-    bin.levels <- append(bin.levels, bins[center.indx + i])
+  if (length(bins) %% 2 == 0) {
+    center.indx = length(bins)/2
+    bin.levels = c(bins[center.indx], bins[center.indx + 1]) 
+    for (i in 1:(center.indx - 1)) {
+      bin.levels <- append(bin.levels, bins[center.indx - i])
+      bin.levels <- append(bin.levels, bins[center.indx + i + 1])
+    }
+  } else {
+    center.indx = round(length(bins)/2, 0) + 1
+    bin.levels = bins[center.indx]
+    for (i in 1:(center.indx - 1)) {
+      bin.levels <- append(bin.levels, bins[center.indx - i])
+      bin.levels <- append(bin.levels, bins[center.indx + i])
+    }
   }
-  
-  # if (length(bins) %% 2 == 0) {} 
-  # else {}
   
   trex.plot$cuts <- factor(trex.plot$cuts, levels = bin.levels)
   trex.plot <- trex.plot[order(trex.plot$cuts), ]
@@ -67,7 +71,14 @@ TREX_plot <- function(binned.data,
   # select a palette based on number of bins 
   if (length(bins) == 5) {
     bin.colors = default_colors
-  } else if(length(bins) == 13) {}
+  } else if(length(bins) > 5 & length(bins) < 13) {
+    bin.colors = colorRampPalette(default_colors)(length(bins))
+  } else if(length(bins) == 13) {
+    bin.colors = thirteen_colors
+  } else if (length(bins) > 13) {
+    library(RColorBrewer)
+    bin.colors = colorRampPalette(thirteen_colors)(length(bins))
+  }
 
   names(bin.colors) <- bins
   
@@ -78,11 +89,11 @@ TREX_plot <- function(binned.data,
     geom_point(aes(x = x, y = y, colour = cuts), cex = 1) + 
     coord_fixed(ratio = graphical.ratio) +
     scale_color_manual(
-      labels = c("\u2265 95% from 1st dataset",
-                 "85-95% from 1st dataset",
-                 "from 1st and 2nd dataset",
-                 "85-95% from 2nd dataset",
-                 "\u2265 95% from 2nd dataset"),
+      # labels = c("\u2265 95% from 1st dataset",
+      #            "85-95% from 1st dataset",
+      #            "from 1st and 2nd dataset",
+      #            "85-95% from 2nd dataset",
+      #            "\u2265 95% from 2nd dataset"),
       values = bin.colors) +
     guides(color = guide_legend(override.aes = list(size = 4))) +
     labs(x =  embed.x, y = embed.y,

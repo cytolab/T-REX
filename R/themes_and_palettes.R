@@ -1,5 +1,6 @@
 library (tidyverse)
 
+
 theme_TREX <- function() {
   theme_bw() %+replace% 
     theme(
@@ -12,4 +13,6 @@ theme_TREX <- function() {
 }
 
 default_colors <- c("navyblue","lightskyblue","lightgray","lightcoral","darkred")
-thirteen_colors <- c("navyblue","#3EbBCE")
+thirteen_colors <- c("navyblue","#3E6BCE","lightskyblue","#D6F3FC","#AEC2CC",
+                     "#79878E","#5D5D5D","#8E7979","#CCAEAE","#FFDEDE",
+                     "lightcoral","#C45555","darkred")
