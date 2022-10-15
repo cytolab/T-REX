@@ -1,28 +1,16 @@
 library(FNN)
 library(fancycut)
 library(ggplot2)
-library(RColorBrewer)
 library(dbscan)
+library(grid)
+library(gridExtra)
 
 source("R/themes_and_palettes.R")
 
-TREX <- function(embedding.data,                   # dataframe, 2 columns of low dim embedding + file_ID for which dataset a cell belongs to
-                 kvalue = 60,                      # number, for KNN search 
+TREX <- function(embedding.data,                   
+                 kvalue = 60,                       
                  bins = c('[0,5]','(5,15]','(15,85)','[85,95)','[95,100]')           
                  ) {
-  
-  # set up warning about 3 min bins 
-  
-  binned.data = TREX_bin(embedding.data, kvalue, bins)
-  
-  # TREX_stats(binned.data)
-
-  return(binned.data)
-}
-
-TREX_bin <- function(embedding.data, 
-                     kvalue,
-                     bins) {
   
   # KNN search per cell 
   neighbor.index = knnx.index(embedding.data[, 1:2], embedding.data[, 1:2], k = kvalue)
@@ -41,12 +29,14 @@ TREX_bin <- function(embedding.data,
 
 TREX_plot <- function(binned.data,
                       embed.type = "Embedding",
+                      percent.labels = TRUE,
+                      title = "dataset 1 vs. dataset 2", 
                       caption = NULL) {
 
-  trex.plot = binned.data 
+  trex.data = binned.data 
   bins = levels(binned.data$cuts)
   
-  # reorder bins so that unchanging areas are on the bottom geom_layer, and regions of interest are on top 
+  # reorder bins so that regions of interest are on top 
   if (length(bins) %% 2 == 0) {
     center.indx = length(bins)/2
     bin.levels = c(bins[center.indx], bins[center.indx + 1]) 
@@ -63,83 +53,99 @@ TREX_plot <- function(binned.data,
     }
   }
   
-  trex.plot$cuts <- factor(trex.plot$cuts, levels = bin.levels)
-  trex.plot <- trex.plot[order(trex.plot$cuts), ]
+  trex.data$cuts <- factor(trex.data$cuts, levels = bin.levels)
+  trex.data <- trex.data[order(trex.data$cuts), ]
   range <- apply(apply(binned.data[, 1:2], 2, range), 2, diff)
   graphical.ratio <- (range[1] / range[2])
   
-  # select a palette based on number of bins 
-  if (length(bins) == 5) {
-    bin.colors = default_colors
-  } else if(length(bins) > 5 & length(bins) < 13) {
-    bin.colors = colorRampPalette(default_colors)(length(bins))
-  } else if(length(bins) == 13) {
-    bin.colors = thirteen_colors
-  } else if (length(bins) > 13) {
-    library(RColorBrewer)
-    bin.colors = colorRampPalette(thirteen_colors)(length(bins))
+  if (percent.labels) {
+    bin.labels = get_percent_labels(bins, title)
+  } else {
+    bin.labels = bins
   }
-
-  names(bin.colors) <- bins
   
   embed.x = paste(embed.type, "1")
   embed.y = paste(embed.type, "2")
   
-  ggplot(trex.plot) + 
+  trex.plot = ggplot(trex.data) + 
     geom_point(aes(x = x, y = y, colour = cuts), cex = 1) + 
     coord_fixed(ratio = graphical.ratio) +
     scale_color_manual(
-      # labels = c("\u2265 95% from 1st dataset",
-      #            "85-95% from 1st dataset",
-      #            "from 1st and 2nd dataset",
-      #            "85-95% from 2nd dataset",
-      #            "\u2265 95% from 2nd dataset"),
-      values = bin.colors) +
+      labels = bin.labels,
+      values = get_TREX_colors(bins)) +
     guides(color = guide_legend(override.aes = list(size = 4))) +
-    labs(x =  embed.x, y = embed.y,
-         title = paste0(sample_type, "_", sample_id, "_", time_comparison, " - Percent Change"),
-         caption = caption) +
+    labs(x =  embed.x, y = embed.y, caption = caption) +
     theme_TREX()
   
-  # save & export plot as PNG
+  # add red/blue colored title 
+  titleGrobs <- grobTree(
+    gp = gpar(fontsize = 12, fontface = "bold"),
+    textGrob(label = str_split(title, " vs. ")[[1]][1], 
+             name = "title1",
+             x = unit(5, "lines"), 
+             y = unit(-0.5, "lines"), 
+             hjust = 0, vjust = 0, 
+             gp = gpar(col = "#000080")),
+    textGrob(label = " vs. ", name = "title2",
+             x = grobWidth("title1") + unit(5, "lines"), 
+             y = unit(-0.5, "lines"),
+             hjust = 0, vjust = 0),
+    textGrob(label = str_split(title, " vs. ")[[1]][2], 
+             name = "title3",
+             x = grobWidth("title1") + grobWidth("title2") + unit(5, "lines"), 
+             y = unit(-0.5, "lines"),
+             hjust = 0, vjust = 0, 
+             gp = gpar(col = "#8B0000"))
+  )
+  trex.titled <- arrangeGrob(trex.plot, top = titleGrobs, padding = unit(2.6, "line"))
+
   ggsave(
     paste0(strftime(Sys.time(), "%Y-%m-%d_%H_%M"), "_TREX_plot.png"), 
+    plot = trex.titled, 
     width = 8, 
     height = 8
   )
+  
+  return(trex.titled)
 }
 
-# calculate degree of change, and direction of change for pairwise comparison
 TREX_stats <- function(binned.data) {
 
   sample.table <- data.frame(total_cells = nrow(binned.data))
-  sums = c(sum(binned.data$cuts == '(15,85)'),
-           sum(binned.data$cuts == '(5,15]'),
-           sum(binned.data$cuts == '[0,5]'),
-           sum(binned.data$cuts == '[85,95)'),
-           sum(binned.data$cuts == '[95,100]'))
   
-  sample.table[, c(2:6)] <- sums
-  colnames(sample.table)[2:6] <- c("(15,85)","(5,15]","[0,5]","[85,95)","[95,100]")
+  sums = vector()
+  for (i in levels(binned.data$cuts)) {
+    sums <- append(sums, sum(binned.data$cuts == i))
+  }
+
+  sample.table[, c(2:length(levels(binned.data$cuts)))] <- sums
+  colnames(sample.table)[2:length(levels(binned.data$cuts))] <- levels(binned.data$cuts)
   
   percent = 100*(sums/nrow(binned.data))
   sample.table$degree_of_change = (sum(percent[3] + percent[5]))
   sample.table$direction_of_change = (sums[5] - sums[3]) / (sums[5] + sums[3])
   
-  # export stats as CSV
   write.csv(sample.table, paste0(strftime(Sys.time(),"%Y-%m-%d_%H_%M"), "_TREX_stats.csv"))
   
   return(sample.table) 
 }
 
 # use DBSCAN to cluster on regions of great change (5th and 95 percentiles of change)
-TREX_cluster <- function(binned.data,                   # output from TREX() or TREX_bin()
-                         marker.data = NULL) {          # same nrow as binned.data, for use downstream 
+TREX_cluster <- function(binned.data, 
+                         bins.of.interest = NULL,
+                         marker.data = NULL) {           
 
   if (!is.null(marker.data)) {
     binned.data <- cbind(binned.data, marker.data)
   }
   
+  if (!is.null(bins.of.interest)) {
+    bin.levels = levels(binned.data$cuts)
+    bins.of.interest <- c(bin.levels[1], bin.levels[length(bin.levels)])
+  }  
+
+  str(bins.of.interest)
+    
   regions.of.interest <- binned.data %>%
     dplyr::filter(cuts == "[0,5]" | cuts == "[95,100]")
 
@@ -154,11 +160,15 @@ TREX_cluster <- function(binned.data,                   # output from TREX() or 
   mean.percent.change = lapply(cluster.data, function(x) mean(x[, which(colnames(track.data) == "percent.change")]))
   write.csv(mean.percent.change, paste0(strftime(Sys.time(),"%Y-%m-%d_%H%M"),"_cluster_ave_percent_change.csv"))
 
+  return(track.data)
+}
+
+TREX_cluster_plot <- function() {
   qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual', ]
   col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
   set.seed(1)
   values = sample(col_vector)
-
+  
   range <- apply(apply(track.data[, 1:2], 2, range), 2, diff)
   graphical.ratio <- (range[1] / range[2])
   
@@ -175,14 +185,13 @@ TREX_cluster <- function(binned.data,                   # output from TREX() or 
     ) +
     guides(colour = guide_legend(override.aes = list(size = 5), nrow = 13)) +
     theme_TREX()
-
-  # save & export plot as PNG
+  
   ggsave(
     paste0(strftime(Sys.time(), "%Y-%m-%d_%H_%M"), "_DBSCAN_plot.png"), 
     width = 8, 
     height = 8
   )
   
-  return(track.data)
+  
 }
 
