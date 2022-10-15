@@ -130,7 +130,6 @@ TREX_stats <- function(binned.data) {
   return(sample.table) 
 }
 
-# use DBSCAN to cluster on regions of great change (5th and 95 percentiles of change)
 TREX_cluster <- function(binned.data, 
                          bins.of.interest = NULL,
                          marker.data = NULL) {           
@@ -143,12 +142,8 @@ TREX_cluster <- function(binned.data,
     bin.levels = levels(binned.data$cuts)
     bins.of.interest <- c(bin.levels[1], bin.levels[length(bin.levels)])
   }  
-
-  str(bins.of.interest)
-    
-  regions.of.interest <- binned.data %>%
-    dplyr::filter(cuts == "[0,5]" | cuts == "[95,100]")
-
+  regions.of.interest = data.frame(binned.data[which(binned.data$cuts == bins.of.interest), ])
+  
   db.result = dbscan::dbscan(regions.of.interest[, 1:2], eps = 0.3, minPts = 1)
   track.data = cbind(regions.of.interest, cluster = db.result$cluster)
   track.data <- track.data %>%
@@ -163,7 +158,10 @@ TREX_cluster <- function(binned.data,
   return(track.data)
 }
 
-TREX_cluster_plot <- function() {
+TREX_cluster_plot <- function(track.data,
+                              binned.data = NULL,
+                              embed.type = "Embedding") {
+  
   qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual', ]
   col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
   set.seed(1)
@@ -172,16 +170,23 @@ TREX_cluster_plot <- function() {
   range <- apply(apply(track.data[, 1:2], 2, range), 2, diff)
   graphical.ratio <- (range[1] / range[2])
   
-  ggplot() +
-    geom_point(data = binned.data, aes(x = x, y = y), col = "lightgray") + 
+  embed.x = paste(embed.type, "1")
+  embed.y = paste(embed.type, "2")
+  
+  cluster.plot = ggplot() 
+  
+  if (!is.null(binned.data)) {
+    cluster.plot <- cluster.plot + geom_point(data = binned.data, aes(x = x, y = y), col = "lightgray")
+  }
+  
+  cluster.plot <- cluster.plot + 
     geom_point(data = track.data, aes(x = x, y = y, col = as.factor(cluster)), cex = 1.5) +
     coord_fixed(ratio = graphical.ratio) +
     scale_color_manual(values = values) +
     labs(
-      x = "UMAP 1", 
-      y = "UMAP 2", 
-      title = "DBSCAN Clusters (5th & 95th percentiles)", 
-      color = "DBSCAN Cluster"
+      x = embed.x, 
+      y = embed.y, 
+      title = "DBSCAN Clusters, bins of interest"
     ) +
     guides(colour = guide_legend(override.aes = list(size = 5), nrow = 13)) +
     theme_TREX()
@@ -192,6 +197,6 @@ TREX_cluster_plot <- function() {
     height = 8
   )
   
-  
+  return(cluster.plot)
 }
 
