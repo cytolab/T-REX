@@ -136,9 +136,9 @@ my.TREX <- TREX(
   # bins = c('[0,5)','[5,10)','[10,15)','[15,20)','[20,25)','[25,30)','[30,35)',
   #          '[35,40)','[40,45)','[45,55)','[55,60)','[60,65)','[65,70)',
   #          '[70,75]','[75,80)','[80,85)','[85,90)','[90,95)','[95,100]')
-  
+
   # larger # bins
-  # bins = fifty_bins
+  bins = fifty_bins
   
   # even # of bins 
   # bins = c('[0,5]','(5,15]','(15,35]','(35,85)','[85,95)','[95,100]')
@@ -147,7 +147,7 @@ my.TREX <- TREX(
 # TREX_plot(
 #   binned.data = my.TREX,
 #   embed.type = "UMAP",
-#   percent.labels = TRUE,
+#   percent.labels = FALSE,
 #   # title = "Timepoint 1 vs. Timepoint 2",
 #   caption = "Data from Brodin lab in Rodriguez et al., Cell Rep Med. 2020"
 # )
@@ -163,16 +163,17 @@ source("R/TREX.R")
 setwd(paste0(getwd(),"/data_files/brodin covid/output files"))
 
 my.clusters <- TREX_cluster(
-  my.TREX, 
-  transformed.data
+  binned.data = my.TREX, 
+  marker.data = transformed.data
 )
 
 TREX_cluster_plot(
   track.data = my.clusters,
-  # binned.data = my.TREX,
+  binned.data = my.TREX,
   embed.type = "UMAP"
 )
 ```
+
 
 ```{r markers heatmap}  
 # create heatmaps of every marker across UMAP axes 

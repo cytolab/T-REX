@@ -138,10 +138,13 @@ TREX_cluster <- function(binned.data,
     binned.data <- cbind(binned.data, marker.data)
   }
   
-  if (!is.null(bins.of.interest)) {
+  if (is.null(bins.of.interest)) {
     bin.levels = levels(binned.data$cuts)
     bins.of.interest <- c(bin.levels[1], bin.levels[length(bin.levels)])
   }  
+  
+  str(bins.of.interest)
+  
   regions.of.interest = data.frame(binned.data[which(binned.data$cuts == bins.of.interest), ])
   
   db.result = dbscan::dbscan(regions.of.interest[, 1:2], eps = 0.3, minPts = 1)
@@ -160,29 +163,36 @@ TREX_cluster <- function(binned.data,
 
 TREX_cluster_plot <- function(track.data,
                               binned.data = NULL,
-                              embed.type = "Embedding") {
-  
-  qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual', ]
-  col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
-  set.seed(1)
-  values = sample(col_vector)
-  
-  range <- apply(apply(track.data[, 1:2], 2, range), 2, diff)
-  graphical.ratio <- (range[1] / range[2])
+                              embed.type = "Embedding",
+                              colors = NULL) {
   
   embed.x = paste(embed.type, "1")
   embed.y = paste(embed.type, "2")
   
-  cluster.plot = ggplot() 
+  cluster.plot = ggplot()
+  color.values = tatarize_optimized(length(unique(track.data$cluster)))
   
+  if (!is.null(colors)) {
+    color.values <- colors
+  }
+  
+  # use all embedding points to calculate ratio if included 
   if (!is.null(binned.data)) {
     cluster.plot <- cluster.plot + geom_point(data = binned.data, aes(x = x, y = y), col = "lightgray")
+    color.values <- append(color.values, "lightgray")
+    range <- apply(apply(binned.data[, 1:2], 2, range), 2, diff)
+    graphical.ratio <- (range[1] / range[2])
+  } else {
+    range <- apply(apply(track.data[, 1:2], 2, range), 2, diff)
+    graphical.ratio <- (range[1] / range[2])
   }
+  
+  str(graphical.ratio)
   
   cluster.plot <- cluster.plot + 
     geom_point(data = track.data, aes(x = x, y = y, col = as.factor(cluster)), cex = 1.5) +
     coord_fixed(ratio = graphical.ratio) +
-    scale_color_manual(values = values) +
+    scale_color_manual(values = color.values) +
     labs(
       x = embed.x, 
       y = embed.y, 
