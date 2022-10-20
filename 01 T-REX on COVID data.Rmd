@@ -123,7 +123,7 @@ fifty_bins[length(fifty_bins)] <- "[98,100]"
 
 ```{r run TREX}
 source("R/TREX.R")
-setwd(paste0(getwd(),"/data_files/brodin covid/output files"))
+setwd(paste0(getwd(),"/data_files/brodin covid/TREX_output"))
 
 my.TREX <- TREX(
   embedding.data = cbind(umap.data, file_ID = sampled.data$file_ID),
@@ -138,35 +138,36 @@ my.TREX <- TREX(
   #          '[70,75]','[75,80)','[80,85)','[85,90)','[90,95)','[95,100]')
 
   # larger # bins
-  bins = fifty_bins
+  # bins = fifty_bins
   
   # even # of bins 
   # bins = c('[0,5]','(5,15]','(15,35]','(35,85)','[85,95)','[95,100]')
 )
 
-# TREX_plot(
-#   binned.data = my.TREX,
-#   embed.type = "UMAP",
-#   percent.labels = FALSE,
-#   # title = "Timepoint 1 vs. Timepoint 2",
-#   caption = "Data from Brodin lab in Rodriguez et al., Cell Rep Med. 2020"
-# )
+TREX_plot(
+  binned.data = my.TREX,
+  embed.type = "UMAP",
+  caption = "Data from Brodin lab in Rodriguez et al., Cell Rep Med. 2020"
+)
 ```
 
 ```{r}
 source("R/TREX.R")
+
+setwd(paste0(getwd(),"/data_files/brodin covid/TREX_output"))
 TREX_stats(my.TREX)
 ```
 
 ```{r clustering}
 source("R/TREX.R")
-setwd(paste0(getwd(),"/data_files/brodin covid/output files"))
+setwd(paste0(getwd(),"/data_files/brodin covid/TREX_output"))
 
 my.clusters <- TREX_cluster(
   binned.data = my.TREX, 
-  marker.data = transformed.data
+  marker.data = chosen.data
 )
 
+library(viridis)
 TREX_cluster_plot(
   track.data = my.clusters,
   binned.data = my.TREX,
@@ -236,11 +237,13 @@ build_heatmaps(
 ```
 
 ``` {r count cells in each cluster}
+setwd(paste0(getwd(),"/data_files/brodin covid/TREX_output"))
+
 all.clusters = split(my.clusters, as.factor(my.clusters$cluster))
 counts.total  <- sapply(all.clusters, NROW)
 counts.5 <- vector()
 for (i in 1:length(all.clusters)){
-  counts.5[i] = sum(all.clusters[[i]][["status"]] == '[0,5]')
+  counts.5[i] = sum(all.clusters[[i]][["cuts"]] == '[0,5]')
 }
 counts.95 = counts.total - counts.5
 cluster.data = as.data.frame(counts.total)
@@ -252,7 +255,7 @@ print(cluster.data)
 ```
 
 ```{r export_FCS_files}
-setwd(paste0(getwd(),"/data_files/brodin covid/output files"))
+setwd(paste0(getwd(),"/data_files/brodin covid/TREX_output"))
 
 # export new FCS files with sampled data, percent change, and umap axes
 to.export = cbind(transformed.data, umap.data, my.TREX$percent.change)

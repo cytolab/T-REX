@@ -4,6 +4,7 @@ library(ggplot2)
 library(dbscan)
 library(grid)
 library(gridExtra)
+library(Palo)
 
 source("R/themes_and_palettes.R")
 
@@ -106,27 +107,22 @@ TREX_plot <- function(binned.data,
     height = 8
   )
   
-  return(trex.titled)
+  return(ggdraw(trex.titled))
 }
 
 TREX_stats <- function(binned.data) {
-
   sample.table <- data.frame(total_cells = nrow(binned.data))
-  
   sums = vector()
+  num_bins = length(levels(binned.data$cuts))
   for (i in levels(binned.data$cuts)) {
     sums <- append(sums, sum(binned.data$cuts == i))
   }
-
-  sample.table[, c(2:length(levels(binned.data$cuts)))] <- sums
-  colnames(sample.table)[2:length(levels(binned.data$cuts))] <- levels(binned.data$cuts)
-  
+  sample.table[, c(2:(num_bins + 1))] <- sums
+  colnames(sample.table)[2:(num_bins + 1)] <- levels(binned.data$cuts)
   percent = 100*(sums/nrow(binned.data))
-  sample.table$degree_of_change = (sum(percent[3] + percent[5]))
-  sample.table$direction_of_change = (sums[5] - sums[3]) / (sums[5] + sums[3])
-  
-  write.csv(sample.table, paste0(strftime(Sys.time(),"%Y-%m-%d_%H_%M"), "_TREX_stats.csv"))
-  
+  sample.table$degree_of_change = (sum(percent[1] + percent[length(percent)]))
+  sample.table$direction_of_change = (sums[length(sums)] - sums[1]) / (sums[length(sums)] + sums[1])
+  write.csv(sample.table, paste0(strftime(Sys.time(),"%Y-%m-%d_%H_%M"), "_TREX_stats.csv"), row.names = FALSE)
   return(sample.table) 
 }
 
@@ -143,17 +139,13 @@ TREX_cluster <- function(binned.data,
     bins.of.interest <- c(bin.levels[1], bin.levels[length(bin.levels)])
   }  
   
-  str(bins.of.interest)
-  
-  regions.of.interest = data.frame(binned.data[which(binned.data$cuts == bins.of.interest), ])
-  
+  regions.of.interest = binned.data[binned.data$cuts %in% bins.of.interest, ]
   db.result = dbscan::dbscan(regions.of.interest[, 1:2], eps = 0.3, minPts = 1)
   track.data = cbind(regions.of.interest, cluster = db.result$cluster)
   track.data <- track.data %>%
     filter(cluster != 0)
   
   cluster.data = split(track.data, track.data$cluster)
-  
   median.percent.change = lapply(cluster.data, function(x) median(x[, which(colnames(track.data) == "percent.change")]))
   mean.percent.change = lapply(cluster.data, function(x) mean(x[, which(colnames(track.data) == "percent.change")]))
   write.csv(mean.percent.change, paste0(strftime(Sys.time(),"%Y-%m-%d_%H%M"),"_cluster_ave_percent_change.csv"))
@@ -174,7 +166,7 @@ TREX_cluster_plot <- function(track.data,
   
   if (!is.null(colors)) {
     color.values <- colors
-  }
+  } 
   
   # use all embedding points to calculate ratio if included 
   if (!is.null(binned.data)) {
@@ -186,8 +178,6 @@ TREX_cluster_plot <- function(track.data,
     range <- apply(apply(track.data[, 1:2], 2, range), 2, diff)
     graphical.ratio <- (range[1] / range[2])
   }
-  
-  str(graphical.ratio)
   
   cluster.plot <- cluster.plot + 
     geom_point(data = track.data, aes(x = x, y = y, col = as.factor(cluster)), cex = 1.5) +
