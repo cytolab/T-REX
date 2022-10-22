@@ -31,7 +31,8 @@ TREX <- function(embedding.data,
 TREX_plot <- function(binned.data,
                       embed.type = "Embedding",
                       percent.labels = TRUE,
-                      title = "dataset 1 vs. dataset 2", 
+                      title = "Dataset 1 vs. Dataset 2", 
+                      title.height = -3,
                       caption = NULL) {
 
   trex.data = binned.data 
@@ -80,21 +81,21 @@ TREX_plot <- function(binned.data,
   
   # add red/blue colored title 
   titleGrobs <- grobTree(
-    gp = gpar(fontsize = 12, fontface = "bold"),
+    gp = gpar(fontsize = 16, fontface = "bold"),
     textGrob(label = str_split(title, " vs. ")[[1]][1], 
              name = "title1",
-             x = unit(5, "lines"), 
-             y = unit(-0.5, "lines"), 
+             x = unit(3, "lines"), 
+             y = unit(title.height, "lines"), 
              hjust = 0, vjust = 0, 
              gp = gpar(col = "#000080")),
     textGrob(label = " vs. ", name = "title2",
-             x = grobWidth("title1") + unit(5, "lines"), 
-             y = unit(-0.5, "lines"),
+             x = grobWidth("title1") + unit(3, "lines"), 
+             y = unit(title.height, "lines"),
              hjust = 0, vjust = 0),
     textGrob(label = str_split(title, " vs. ")[[1]][2], 
              name = "title3",
-             x = grobWidth("title1") + grobWidth("title2") + unit(5, "lines"), 
-             y = unit(-0.5, "lines"),
+             x = grobWidth("title1") + grobWidth("title2") + unit(3, "lines"), 
+             y = unit(title.height, "lines"),
              hjust = 0, vjust = 0, 
              gp = gpar(col = "#8B0000"))
   )
@@ -128,6 +129,7 @@ TREX_stats <- function(binned.data) {
 
 TREX_cluster <- function(binned.data, 
                          bins.of.interest = NULL,
+                         db.eps = 0.5,
                          marker.data = NULL) {           
 
   if (!is.null(marker.data)) {
@@ -140,7 +142,7 @@ TREX_cluster <- function(binned.data,
   }  
   
   regions.of.interest = binned.data[binned.data$cuts %in% bins.of.interest, ]
-  db.result = dbscan::dbscan(regions.of.interest[, 1:2], eps = 0.3, minPts = 1)
+  db.result = dbscan::dbscan(regions.of.interest[, 1:2], eps = db.eps, minPts = 1)
   track.data = cbind(regions.of.interest, cluster = db.result$cluster)
   track.data <- track.data %>%
     filter(cluster != 0)
@@ -162,7 +164,7 @@ TREX_cluster_plot <- function(track.data,
   embed.y = paste(embed.type, "2")
   
   cluster.plot = ggplot()
-  color.values = tatarize_optimized(length(unique(track.data$cluster)))
+  color.values = tatarize_optimized(length(unique(as.factor(track.data$cluster))))
   
   if (!is.null(colors)) {
     color.values <- colors
@@ -188,15 +190,20 @@ TREX_cluster_plot <- function(track.data,
       y = embed.y, 
       title = "DBSCAN Clusters, bins of interest"
     ) +
-    guides(colour = guide_legend(override.aes = list(size = 5), nrow = 13)) +
+    # guides(colour = guide_legend(override.aes = list(size = 5), nrow = 13)) +
     theme_TREX()
   
   ggsave(
-    paste0(strftime(Sys.time(), "%Y-%m-%d_%H_%M"), "_DBSCAN_plot.png"), 
+    filename = paste0(strftime(Sys.time(), "%Y-%m-%d_%H_%M"), "_DBSCAN_plot.png"), 
+    plot = cluster.plot,
     width = 8, 
     height = 8
   )
   
   return(cluster.plot)
+}
+
+TREX_counts <- function() {
+  
 }
 

@@ -42,17 +42,8 @@ library(dplyr)
 library(purrr)
 library(cowplot)
 
-# load TREX functions from local folder 
+# load T-REX functions from local folder 
 source("R/TREX.R")
-```
-
-```{r setup}
-# choose an output directory 
-output_dir = "TREX_output/"
-output_location = "data_files/brodin covid/"
-if (!file.exists(paste0(output_location, output_dir))) {
-  dir.create(paste0(output_location, output_dir))
-}
 ```
 
 ```{r read in files}
@@ -69,26 +60,31 @@ second.dataset$file_ID = 2
 # save original column names for final export to FCS files 
 orig.names = colnames(first.dataset)
 
-# rename columns with marker names, rather than measured channels 
+# rename columns with simplified marker names 
 colnames(first.dataset)[1:(length(first.dataset) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
 colnames(second.dataset)[1:(length(second.dataset) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
 ```
 
 ```{r equal sampling}
-# get an equal number of datapoints from both datasets 
+# find number of datapoints in smaller sample 
 smaller_sample = nrow(first.dataset) 
 if (nrow(second.dataset) < smaller_sample) { 
   smaller_sample <- nrow(second.dataset) 
 }
 
 set.seed(1)
+
+# get an equal number of datapoints from both datasets
 sampled.data = as.data.frame(rbind(
   first.dataset[sample(nrow(first.dataset), smaller_sample), ], 
   second.dataset[sample(nrow(second.dataset), smaller_sample), ]
 ))
+
+# rename columns with simplified marker names 
+colnames(sampled.data)[1:(length(sampled.data) - 2)] <- as.character(read.FCS(data.files[[1]])@parameters@data[["desc"]])
 ```
 
-```{r choose features, scale data}
+```{r choose markers, scale data}
 # choose markers to make low dimensional embedding 
 chosen.data = sampled.data[, c(3,9:14,19:31,33:54,57:61)]
 
@@ -102,46 +98,17 @@ setwd(paste0(getwd(),"/data_files/brodin covid"))
 # create UMAP (low dimensional embedding)
 myumap <- umap(transformed.data, ret_model = TRUE, verbose = TRUE)
 
-# uncomment the line below to save UMAP 
+# uncomment the line below to save the UMAP 
 # save_uwot(myumap, paste0(getwd(), "/", output_location, output_dir, strftime(Sys.time(),"%Y-%m-%d_%H_%M"),"_umap_results"))
 
 umap.data = as.data.frame(myumap$embedding)
 colnames(umap.data) <- c("UMAP1", "UMAP2")
 ```
-
-```{r}
-# generate bin sequences (remove later)
-
-fifty_bins = vector()
-for (i in seq(from = 0, to = 99, by = 2)) {
-  this_str = paste0("[",i,",",i + 2,")")
-  fifty_bins <- append(fifty_bins, this_str)
-}
-fifty_bins[length(fifty_bins)] <- "[98,100]"
-```
-
-
-```{r run TREX}
-source("R/TREX.R")
+```{r TREX}
 setwd(paste0(getwd(),"/data_files/brodin covid/TREX_output"))
 
 my.TREX <- TREX(
   embedding.data = cbind(umap.data, file_ID = sampled.data$file_ID),
-  
-  # Hannah's extended bins 
-  # bins = c('[0,5)','[5,15)','[15,25)','[25,37.5)','[37.5,42.5)','[42.5,47.5)','[47.5,52.5)',
-  #          '[52.5,57.5)','[57.5,62.5)','[62.5,75)','[75,85)','[85,95)','[95,100]')
-  
-  # 19 bins to test extended colors 
-  # bins = c('[0,5)','[5,10)','[10,15)','[15,20)','[20,25)','[25,30)','[30,35)',
-  #          '[35,40)','[40,45)','[45,55)','[55,60)','[60,65)','[65,70)',
-  #          '[70,75]','[75,80)','[80,85)','[85,90)','[90,95)','[95,100]')
-
-  # larger # bins
-  # bins = fifty_bins
-  
-  # even # of bins 
-  # bins = c('[0,5]','(5,15]','(15,35]','(35,85)','[85,95)','[95,100]')
 )
 
 TREX_plot(
@@ -152,22 +119,19 @@ TREX_plot(
 ```
 
 ```{r}
-source("R/TREX.R")
-
 setwd(paste0(getwd(),"/data_files/brodin covid/TREX_output"))
 TREX_stats(my.TREX)
 ```
 
 ```{r clustering}
-source("R/TREX.R")
 setwd(paste0(getwd(),"/data_files/brodin covid/TREX_output"))
 
-my.clusters <- TREX_cluster(
+my.clusters = TREX_cluster(
   binned.data = my.TREX, 
+  db.eps = 0.3, 
   marker.data = chosen.data
 )
 
-library(viridis)
 TREX_cluster_plot(
   track.data = my.clusters,
   binned.data = my.TREX,
@@ -176,7 +140,7 @@ TREX_cluster_plot(
 ```
 
 
-```{r markers heatmap}  
+```{r marker heatmaps}  
 # create heatmaps of every marker across UMAP axes 
 umap.bychannel <- as_tibble(umap.data) %>%
   bind_cols(transformed.data)  %>%
@@ -191,9 +155,16 @@ umap.bychannel <- as_tibble(umap.data) %>%
       facet_grid(~ channel, labeller = function(x) label_value(x, multi_line = FALSE)) +
       coord_fixed() +
       theme_bw() +
-      theme(strip.text.x = element_text(size = 20),
-            legend.title = element_blank())) %>%
-  plot_grid(plotlist = ., align = 'hv', ncol = 8)
+      theme(
+        strip.text.x = element_text(size = 20),
+        legend.title = element_blank(),
+        panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank()
+      )
+    ) %>%
+plot_grid(plotlist = ., align = 'hv', ncol = 8)
 
 png(
   paste0(output_location, output_dir, strftime(Sys.time(),"%Y-%m-%d_%H_%M"), "_marker_heat.png"),
