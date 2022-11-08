@@ -14,7 +14,7 @@ TREX <- function(embedding.data,
                  ) {
   
   # KNN search per cell 
-  neighbor.index = knnx.index(embedding.data[, 1:2], embedding.data[, 1:2], k = kvalue)
+  neighbor.index = knnx.index(embedding.data, embedding.data, k = kvalue)
   neighbor.index[neighbor.index <= nrow(embedding.data)/2] <- 0
   neighbor.index[neighbor.index > nrow(embedding.data)/2] <- 1
   
@@ -29,13 +29,12 @@ TREX <- function(embedding.data,
 }
 
 TREX_plot <- function(binned.data,
+                      data.names = c("Dataset 1","Dataset 2"), 
+                      title.height = -3,
                       embed.type = "Embedding",
                       percent.labels = TRUE,
-                      title = "Dataset 1 vs. Dataset 2", 
-                      title.height = -3,
                       caption = NULL) {
 
-  trex.data = binned.data 
   bins = levels(binned.data$cuts)
   
   # reorder bins so that regions of interest are on top 
@@ -55,13 +54,13 @@ TREX_plot <- function(binned.data,
     }
   }
   
-  trex.data$cuts <- factor(trex.data$cuts, levels = bin.levels)
-  trex.data <- trex.data[order(trex.data$cuts), ]
+  binned.data$cuts <- factor(binned.data$cuts, levels = bin.levels)
+  binned.data <- binned.data[order(binned.data$cuts), ]
   range <- apply(apply(binned.data[, 1:2], 2, range), 2, diff)
   graphical.ratio <- (range[1] / range[2])
   
   if (percent.labels) {
-    bin.labels = get_percent_labels(bins, title)
+    bin.labels = get_percent_labels(bins, data.names)
   } else {
     bin.labels = bins
   }
@@ -69,8 +68,8 @@ TREX_plot <- function(binned.data,
   embed.x = paste(embed.type, "1")
   embed.y = paste(embed.type, "2")
   
-  trex.plot = ggplot(trex.data) + 
-    geom_point(aes(x = x, y = y, colour = cuts), cex = 1) + 
+  trex.plot = ggplot(binned.data) + 
+    geom_point(aes(x = x, y = y, color = cuts), cex = 1) + 
     coord_fixed(ratio = graphical.ratio) +
     scale_color_manual(
       labels = bin.labels,
@@ -82,17 +81,18 @@ TREX_plot <- function(binned.data,
   # add red/blue colored title 
   titleGrobs <- grobTree(
     gp = gpar(fontsize = 16, fontface = "bold"),
-    textGrob(label = str_split(title, " vs. ")[[1]][1], 
+    textGrob(label = data.names[1], 
              name = "title1",
              x = unit(3, "lines"), 
              y = unit(title.height, "lines"), 
              hjust = 0, vjust = 0, 
              gp = gpar(col = "#000080")),
-    textGrob(label = " vs. ", name = "title2",
+    textGrob(label = " vs. ", 
+             name = "title2",
              x = grobWidth("title1") + unit(3, "lines"), 
              y = unit(title.height, "lines"),
              hjust = 0, vjust = 0),
-    textGrob(label = str_split(title, " vs. ")[[1]][2], 
+    textGrob(label = data.names[2], 
              name = "title3",
              x = grobWidth("title1") + grobWidth("title2") + unit(3, "lines"), 
              y = unit(title.height, "lines"),
@@ -143,19 +143,19 @@ TREX_cluster <- function(binned.data,
   
   regions.of.interest = binned.data[binned.data$cuts %in% bins.of.interest, ]
   db.result = dbscan::dbscan(regions.of.interest[, 1:2], eps = db.eps, minPts = 1)
-  track.data = cbind(regions.of.interest, cluster = db.result$cluster)
-  track.data <- track.data %>%
+  cluster.data = cbind(regions.of.interest, cluster = db.result$cluster)
+  cluster.data <- cluster.data %>%
     filter(cluster != 0)
   
-  cluster.data = split(track.data, track.data$cluster)
-  median.percent.change = lapply(cluster.data, function(x) median(x[, which(colnames(track.data) == "percent.change")]))
-  mean.percent.change = lapply(cluster.data, function(x) mean(x[, which(colnames(track.data) == "percent.change")]))
+  cluster.data = split(cluster.data, cluster.data$cluster)
+  median.percent.change = lapply(cluster.data, function(x) median(x[, which(colnames(cluster.data) == "percent.change")]))
+  mean.percent.change = lapply(cluster.data, function(x) mean(x[, which(colnames(cluster.data) == "percent.change")]))
   write.csv(mean.percent.change, paste0(strftime(Sys.time(),"%Y-%m-%d_%H%M"),"_cluster_ave_percent_change.csv"))
 
-  return(track.data)
+  return(cluster.data)
 }
 
-TREX_cluster_plot <- function(track.data,
+TREX_cluster_plot <- function(cluster.data,
                               binned.data = NULL,
                               embed.type = "Embedding",
                               colors = NULL) {
@@ -164,7 +164,7 @@ TREX_cluster_plot <- function(track.data,
   embed.y = paste(embed.type, "2")
   
   cluster.plot = ggplot()
-  color.values = tatarize_optimized(length(unique(as.factor(track.data$cluster))))
+  color.values = tatarize_optimized(length(unique(as.factor(cluster.data$cluster))))
   
   if (!is.null(colors)) {
     color.values <- colors
@@ -177,12 +177,12 @@ TREX_cluster_plot <- function(track.data,
     range <- apply(apply(binned.data[, 1:2], 2, range), 2, diff)
     graphical.ratio <- (range[1] / range[2])
   } else {
-    range <- apply(apply(track.data[, 1:2], 2, range), 2, diff)
+    range <- apply(apply(cluster.data[, 1:2], 2, range), 2, diff)
     graphical.ratio <- (range[1] / range[2])
   }
   
   cluster.plot <- cluster.plot + 
-    geom_point(data = track.data, aes(x = x, y = y, col = as.factor(cluster)), cex = 1.5) +
+    geom_point(data = cluster.data, aes(x = x, y = y, col = as.factor(cluster)), cex = 1.5) +
     coord_fixed(ratio = graphical.ratio) +
     scale_color_manual(values = color.values) +
     labs(
@@ -190,7 +190,7 @@ TREX_cluster_plot <- function(track.data,
       y = embed.y, 
       title = "DBSCAN Clusters, bins of interest"
     ) +
-    # guides(colour = guide_legend(override.aes = list(size = 5), nrow = 13)) +
+    guides(colour = guide_legend(override.aes = list(size = 5))) +
     theme_TREX()
   
   ggsave(
@@ -203,7 +203,36 @@ TREX_cluster_plot <- function(track.data,
   return(cluster.plot)
 }
 
-TREX_counts <- function() {
+# TREX_counts <- function(cluster.data,
+#                         bins.of.interest = NULL) {
+#   
+#   if (is.null(bins.of.interest)) {
+#     bin.levels = levels(cluster.data$cuts)
+#     bins.of.interest <- c(bin.levels[1], bin.levels[length(bin.levels)])
+#   } 
+#   
+#   split.data = split(cluster.data, as.factor(cluster.data$cluster))
+#   counts = sapply(split.data, NROW)
+#   
+#   bin.count = vector()
+#   for (i in 1:length(split.data)) {
+#     bin.count[i] = sum(split.data[[i]][["cuts"]] == "[0,5]")
+#   }
+#   counts.95 = counts - bin.count
+#   str(counts.95)
   
-}
+  # all.clusters = split(cluster.data, as.factor(cluster.data$cluster))
+  # counts.total  <- sapply(all.clusters, NROW)
+  # counts.5 <- vector()
+  # for (i in 1:length(all.clusters)){
+  #   counts.5[i] = sum(all.clusters[[i]][["status"]] == '[0,5]')
+  # }
+  # counts.95 = counts.total-counts.5
+  # cluster.data = as.data.frame(counts.total)
+  # colnames(cluster.data) <- "total_counts"
+  # cluster.data$counts_5 <- counts.5
+  # cluster.data$counts_95 <- counts.95
+  # write.csv(cluster.data, paste(strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_cluster_counts.csv"))
+  # return(cluster.data)
+# }
 

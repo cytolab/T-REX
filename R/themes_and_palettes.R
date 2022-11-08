@@ -1,9 +1,7 @@
 library (tidyverse)
 library(RColorBrewer)
 
-get_percent_labels <- function(bin.levels, title) {
-  title.one = str_split(title, " vs. ")[[1]][1]
-  title.two = str_split(title, " vs. ")[[1]][2]
+get_percent_labels <- function(bin.levels, data.names) {
   
   bin.labels = vector()
   for (bin in bin.levels) {
@@ -24,15 +22,15 @@ get_percent_labels <- function(bin.levels, title) {
     }
     
     if (first.num == 0) {
-      cluster.label = paste0("\u2265", (100 - second.num), "% from ", title.one)
+      cluster.label = paste0("\u2265", (100 - second.num), "% from ", data.names[1])
     } else if (second.num == 100) {
-      cluster.label = paste0("\u2265", first.num, "% from ", title.two)
+      cluster.label = paste0("\u2265", first.num, "% from ", data.names[2])
     } else if (second.num <= 50 & first.num <= 50) {
-      cluster.label = paste0((100 - second.num), "-", (100 - first.num), "% from ", title.one) 
+      cluster.label = paste0((100 - second.num), "-", (100 - first.num), "% from ", data.names[1]) 
     } else if (second.num > 50 & first.num > 50) {
-      cluster.label = paste0(first.num, "-", second.num, "% from ", title.two)
+      cluster.label = paste0(first.num, "-", second.num, "% from ", data.names[2])
     } else {
-      cluster.label = paste0("from ", title.one, " and ", title.two)
+      cluster.label = paste0("from ", data.names[1], " and ", data.names[2])
     }
     bin.labels <- append(bin.labels, cluster.label)
   }
