@@ -13,6 +13,12 @@ TREX <- function(embedding.data,
                  bins = c('[0,5]','(5,15]','(15,85)','[85,95)','[95,100]')           
                  ) {
   
+  # warnings for improperly formatted data 
+  data.name = unique(embedding.data$file_ID)[1]
+  if (length(which(embedding.data$file_ID == data.name)) != nrow(embedding.data)/2) {
+    stop("Datasets are not equally sampled according to file_ID.")
+  }
+  
   # KNN search per cell 
   neighbor.index = knnx.index(embedding.data[, 1:2], embedding.data[, 1:2], k = kvalue)
   
