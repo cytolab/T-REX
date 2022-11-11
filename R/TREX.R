@@ -110,7 +110,11 @@ TREX_plot <- function(binned.data,
   trex.titled <- arrangeGrob(trex.plot, top = titleGrobs, padding = unit(2.6, "line"))
 
   ggsave(
-    paste0(strftime(Sys.time(), "%Y-%m-%d_%H_%M"), "_TREX_plot.png"), 
+    paste0(
+      strftime(Sys.time(), "%Y-%m-%d_%H-%M"),
+      data.names[1], " vs ", data.names[2],
+      " T-REX plot.png"
+    ), 
     plot = trex.titled, 
     width = 8, 
     height = 8
