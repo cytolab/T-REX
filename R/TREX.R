@@ -147,11 +147,11 @@ TREX_cluster <- function(binned.data,
   cluster.data <- cluster.data %>%
     filter(cluster != 0)
   
-  cluster.data = split(cluster.data, cluster.data$cluster)
-  median.percent.change = lapply(cluster.data, function(x) median(x[, which(colnames(cluster.data) == "percent.change")]))
-  mean.percent.change = lapply(cluster.data, function(x) mean(x[, which(colnames(cluster.data) == "percent.change")]))
+  results.data = split(cluster.data, cluster.data$cluster)
+  median.percent.change = lapply(results.data, function(x) median(x[, which(colnames(x) == "percent.change")]))
+  mean.percent.change = lapply(results.data, function(x) mean(x[, which(colnames(x) == "percent.change")]))
   write.csv(mean.percent.change, paste0(strftime(Sys.time(),"%Y-%m-%d_%H%M"),"_cluster_ave_percent_change.csv"))
-
+ 
   return(cluster.data)
 }
 
