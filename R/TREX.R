@@ -14,7 +14,9 @@ TREX <- function(embedding.data,
                  ) {
   
   # KNN search per cell 
-  neighbor.index = knnx.index(embedding.data, embedding.data, k = kvalue)
+  neighbor.index = knnx.index(embedding.data[, 1:2], embedding.data[, 1:2], k = kvalue)
+  
+  # assign dataset belonging by row number
   neighbor.index[neighbor.index <= nrow(embedding.data)/2] <- 0
   neighbor.index[neighbor.index > nrow(embedding.data)/2] <- 1
   
@@ -22,22 +24,28 @@ TREX <- function(embedding.data,
   percent.change = (rowSums(neighbor.index) / kvalue * 100)
   
   # binning 
-  binned.data <- data.frame(x = embedding.data[, 1], y = embedding.data[, 2], percent.change = round(percent.change))
+  binned.data <- data.frame(
+    x = embedding.data[, 1], 
+    y = embedding.data[, 2], 
+    file_ID = embedding.data$file_ID, 
+    percent.change = round(percent.change)
+  )
   binned.data$cuts <- wafflecut(binned.data$percent.change, bins)
 
   return(binned.data)
 }
 
 TREX_plot <- function(binned.data,
-                      data.names = c("Dataset 1","Dataset 2"), 
                       title.height = -3,
                       embed.type = "Embedding",
                       percent.labels = TRUE,
                       caption = NULL) {
 
-  bins = levels(binned.data$cuts)
+  # get dataset names from file_ID column 
+  data.names = unique(binned.data$file_ID)
   
   # reorder bins so that regions of interest are on top 
+  bins = levels(binned.data$cuts)
   if (length(bins) %% 2 == 0) {
     center.indx = length(bins)/2
     bin.levels = c(bins[center.indx], bins[center.indx + 1]) 
