@@ -220,7 +220,8 @@ TREX_cluster_results <- function(cluster.data,
 TREX_cluster_plot <- function(cluster.data,
                               binned.data = NULL,
                               embed.type = "Embedding",
-                              colors = NULL) {
+                              colors = NULL,
+                              export = FALSE) {
   
   embed.x = paste(embed.type, "1")
   embed.y = paste(embed.type, "2")
@@ -255,12 +256,14 @@ TREX_cluster_plot <- function(cluster.data,
     guides(colour = guide_legend(override.aes = list(size = 5))) +
     theme_TREX()
   
-  ggsave(
-    filename = paste0(strftime(Sys.time(), "%Y-%m-%d_%H_%M"), "_DBSCAN_plot.png"), 
-    plot = cluster.plot,
-    width = 8, 
-    height = 8
-  )
+  if (export) {
+    ggsave(
+      filename = paste0(strftime(Sys.time(), "%Y-%m-%d_%H_%M"), "_DBSCAN_plot.png"), 
+      plot = cluster.plot,
+      width = 8, 
+      height = 8
+    )
+  }
   
   return(cluster.plot)
 }
