@@ -21,49 +21,49 @@ TREX <- function(embedding.data,
   
   # create # of bins from integer 
   if (is.numeric(bins)) {
-      bin.size = round(100/bins, digits = 1)
-      new.bins = vector("character", bins)
-      start.b = "["
-      end.b = ")"
-      new.bins[1] <- paste0("[0," , bin.size, "]")
-      for(i in 1:(bins - 1)) {
-        if(i == (bins - 1)) {
-          new.bins[bins] <- paste0("[", i*bin.size, ",100]")
-        } else if(i == floor(bins/2)) {
-          new.bins[floor(bins/2) + 1] <- paste0("(", i*bin.size, ",", (i*bin.size + bin.size), ")")
-          start.b <- "("
-          end.b <- "]"
-        } else {
-          new.bins[i + 1] <- paste0(start.b, i*bin.size, ",", (i*bin.size + bin.size), end.b)
-        }
-      }  
-    }  
-  
-  
+    bin.size = round(100/bins, digits = 1)
+    new.bins = vector("character", bins)
+    start.b = "("
+    end.b = "]"
+    new.bins[1] <- paste0("[0," , bin.size, "]")
+    for(i in 1:(bins - 1)) {
+      if(i == (bins - 1)) {
+        new.bins[bins] <- paste0("[", i*bin.size, ",100]")
+      } else if(i == floor(bins/2)) {
+        new.bins[floor(bins/2) + 1] <- paste0("(", i*bin.size, ",", (i*bin.size + bin.size), ")")
+        start.b <- "["
+        end.b <- ")"
+      } else {
+        new.bins[i + 1] <- paste0(start.b, i*bin.size, ",", (i*bin.size + bin.size), end.b)
+      }
+    } 
+    bins <- new.bins
+    cat(bins)
+  }  
   
   # create bins of a given % 
   
   
   # KNN search per cell 
-  # neighbor.index = knnx.index(embedding.data[, 1:2], embedding.data[, 1:2], k = kvalue)
+  neighbor.index = knnx.index(embedding.data[, 1:2], embedding.data[, 1:2], k = kvalue)
   
   # assign dataset belonging by row number
-  # neighbor.index[neighbor.index <= nrow(embedding.data)/2] <- 0
-  # neighbor.index[neighbor.index > nrow(embedding.data)/2] <- 1
-  # 
+  neighbor.index[neighbor.index <= nrow(embedding.data)/2] <- 0
+  neighbor.index[neighbor.index > nrow(embedding.data)/2] <- 1
+
   # calculate percent change in each KNN region
-  # percent.change = (rowSums(neighbor.index) / kvalue * 100)
+  percent.change = (rowSums(neighbor.index) / kvalue * 100)
   
   # binning 
-  # binned.data <- data.frame(
-  #   x = embedding.data[, 1], 
-  #   y = embedding.data[, 2], 
-  #   file_ID = embedding.data$file_ID, 
-  #   percent.change = round(percent.change)
-  # )
-  # binned.data$cuts <- wafflecut(binned.data$percent.change, bins)
-  # 
-  # return(binned.data)
+  binned.data <- data.frame(
+    x = embedding.data[, 1],
+    y = embedding.data[, 2],
+    file_ID = embedding.data$file_ID,
+    percent.change = round(percent.change)
+  )
+  binned.data$cuts <- wafflecut(binned.data$percent.change, bins)
+
+  return(binned.data)
 }
 
 TREX_plot <- function(binned.data,
@@ -101,7 +101,7 @@ TREX_plot <- function(binned.data,
   if (percent.labels) {
     bin.labels = get_percent_labels(bins, data.names)
   } else {
-    bin.labels = bins
+    bin.labels = waiver()
   }
   
   embed.x = paste(embed.type, "1")
@@ -112,7 +112,9 @@ TREX_plot <- function(binned.data,
     coord_fixed(ratio = graphical.ratio) +
     scale_color_manual(
       labels = bin.labels,
-      values = get_TREX_colors(bins)) +
+      values = get_TREX_colors(bins),
+      breaks = bins
+    ) +
     guides(color = guide_legend(override.aes = list(size = 4))) +
     labs(x =  embed.x, y = embed.y, caption = caption) +
     theme_TREX()
