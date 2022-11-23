@@ -155,7 +155,9 @@ TREX_plot <- function(binned.data,
   return(ggdraw(trex.titled))
 }
 
-TREX_results <- function(binned.data) {
+TREX_results <- function(binned.data, 
+                         export = FALSE) {
+  
   sample.table <- data.frame(total_cells = nrow(binned.data))
   sums = vector()
   num_bins = length(levels(binned.data$cuts))
@@ -167,7 +169,11 @@ TREX_results <- function(binned.data) {
   percent = 100*(sums/nrow(binned.data))
   sample.table$degree_of_change = (sum(percent[1] + percent[length(percent)]))
   sample.table$direction_of_change = (sums[length(sums)] - sums[1]) / (sums[length(sums)] + sums[1])
-  write.csv(sample.table, paste0(strftime(Sys.time(),"%Y-%m-%d_%H_%M"), "_TREX_stats.csv"), row.names = FALSE)
+  
+  if (export) {
+    write.csv(sample.table, paste0(strftime(Sys.time(),"%Y-%m-%d_%H_%M"), "_TREX_results.csv"), row.names = FALSE)
+  }
+  
   return(sample.table) 
 }
 
