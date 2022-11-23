@@ -182,7 +182,8 @@ TREX_results <- function(binned.data,
 TREX_cluster <- function(binned.data, 
                          bins.of.interest = NULL,
                          db.eps = 0.5,
-                         marker.data = NULL) {           
+                         marker.data = NULL,
+                         export = FALSE) {           
 
   if (!is.null(marker.data)) {
     binned.data <- cbind(binned.data, marker.data)
@@ -199,12 +200,21 @@ TREX_cluster <- function(binned.data,
   cluster.data <- cluster.data %>%
     filter(cluster != 0)
   
+  return(cluster.data)
+}
+
+TREX_cluster_results <- function(cluster.data,
+                                 export = FALSE) {
+  
   results.data = split(cluster.data, cluster.data$cluster)
   median.percent.change = lapply(results.data, function(x) median(x[, which(colnames(x) == "percent.change")]))
   mean.percent.change = lapply(results.data, function(x) mean(x[, which(colnames(x) == "percent.change")]))
-  write.csv(mean.percent.change, paste0(strftime(Sys.time(),"%Y-%m-%d_%H%M"),"_cluster_ave_percent_change.csv"))
- 
-  return(cluster.data)
+  
+  if (export) {
+    write.csv(mean.percent.change, paste0(strftime(Sys.time(),"%Y-%m-%d_%H%M"),"_cluster_ave_percent_change.csv"))
+  }
+  
+  return(mean.percent.change)
 }
 
 TREX_cluster_plot <- function(cluster.data,
