@@ -267,36 +267,39 @@ TREX_cluster_plot <- function(cluster.data,
   return(cluster.plot)
 }
 
-# TREX_counts <- function(cluster.data,
-#                         bins.of.interest = NULL) {
-#   
-#   if (is.null(bins.of.interest)) {
-#     bin.levels = levels(cluster.data$cuts)
-#     bins.of.interest <- c(bin.levels[1], bin.levels[length(bin.levels)])
-#   } 
-#   
-#   split.data = split(cluster.data, as.factor(cluster.data$cluster))
-#   counts = sapply(split.data, NROW)
-#   
-#   bin.count = vector()
-#   for (i in 1:length(split.data)) {
-#     bin.count[i] = sum(split.data[[i]][["cuts"]] == "[0,5]")
-#   }
-#   counts.95 = counts - bin.count
-#   str(counts.95)
+TREX_counts <- function(cluster.data,
+                        export = TRUE) {
   
-  # all.clusters = split(cluster.data, as.factor(cluster.data$cluster))
-  # counts.total  <- sapply(all.clusters, NROW)
-  # counts.5 <- vector()
-  # for (i in 1:length(all.clusters)){
-  #   counts.5[i] = sum(all.clusters[[i]][["status"]] == '[0,5]')
+  results = data.frame(cluster = unique(cluster.data$cluster))
+  results$bin <- factor(1, levels = levels(cluster.data$cuts))
+  
+  # all cells in a cluster have the same cut, just use the first
+  for (i in results$cluster) {
+    results[i, ]$bin <- cluster.data[which(cluster.data$cluster == i)[1], ]$cuts
+  }
+  
+  # count how many cells are in each cluster
+  split.clusters = split(cluster.data, as.factor(cluster.data$cluster))
+  results$total_cells <- sapply(split.clusters, NROW)
+  
+  # count how many cells are in each bin 
+  # - cyclical analysis, do not include for now 
+  
+  # bins.of.interest = as.vector(unique(results$bin))
+  # results <- cbind(results, data.frame = (matrix(0, ncol = length(bins.of.interest))))
+  # colnames(results)[4:ncol(results)] <- bins.of.interest
+  # col_indx = 4
+  # for (w in bins.of.interest) {
+  #   for (i in 1:length(split.clusters)) {
+  #     results[i, col_indx] <- sum(split.clusters[[i]][["cuts"]] == w)
+  #   }
+  #   col_indx <- col_indx + 1
   # }
-  # counts.95 = counts.total-counts.5
-  # cluster.data = as.data.frame(counts.total)
-  # colnames(cluster.data) <- "total_counts"
-  # cluster.data$counts_5 <- counts.5
-  # cluster.data$counts_95 <- counts.95
-  # write.csv(cluster.data, paste(strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_cluster_counts.csv"))
-  # return(cluster.data)
-# }
+
+  if (export) {
+    write.csv(cluster.data, paste(strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_cluster_counts.csv"))
+  }
+  
+  return(results)
+}
 
