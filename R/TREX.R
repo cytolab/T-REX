@@ -144,7 +144,7 @@ TREX_plot <- function(binned.data,
   if (export) {
     ggsave(
       paste0(
-        strftime(Sys.time(), "%Y-%m-%d_%H-%M"),
+        strftime(Sys.time(), "%Y-%m-%d_%H-%M "),
         data.names[1], " vs ", data.names[2],
         " T-REX plot.png"
       ), 
@@ -182,8 +182,7 @@ TREX_results <- function(binned.data,
 TREX_cluster <- function(binned.data, 
                          bins.of.interest = NULL,
                          db.eps = 0.5,
-                         marker.data = NULL,
-                         export = FALSE) {           
+                         marker.data = NULL) {           
 
   if (!is.null(marker.data)) {
     binned.data <- cbind(binned.data, marker.data)
@@ -258,7 +257,7 @@ TREX_cluster_plot <- function(cluster.data,
   
   if (export) {
     ggsave(
-      filename = paste0(strftime(Sys.time(), "%Y-%m-%d_%H_%M"), "_DBSCAN_plot.png"), 
+      filename = paste0(strftime(Sys.time(), "%Y-%m-%d_%H_%M"), "_cluster_plot.png"), 
       plot = cluster.plot,
       width = 8, 
       height = 8

@@ -53,12 +53,14 @@ setwd(paste0(getwd(),"/data_files/brodin covid"))
 # read in files 
 data.filenames = dir(pattern = "*.fcs")
 first.dataset = as.data.frame(lapply(lapply(data.filenames[[1]], read.FCS), exprs))
-first.dataset$file_ID = 1
 second.dataset = as.data.frame(lapply(lapply(data.filenames[[2]], read.FCS), exprs))
-second.dataset$file_ID = 2
 
 # save original column names for final export to FCS files 
 orig.names = colnames(first.dataset)
+
+# create meaningful names for data sets to be analyzed 
+first.dataset$file_ID = "Timepoint 1"
+second.dataset$file_ID = "Timepoint 2"
 
 # rename columns with simplified marker names 
 colnames(first.dataset)[1:(length(first.dataset) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
@@ -66,22 +68,23 @@ colnames(second.dataset)[1:(length(second.dataset) - 2)] <- as.character(read.FC
 ```
 
 ```{r equal sampling}
+setwd(paste0(getwd(),"/data_files/brodin covid"))
+
 # find number of datapoints in smaller sample 
 smaller_sample = nrow(first.dataset) 
 if (nrow(second.dataset) < smaller_sample) { 
   smaller_sample <- nrow(second.dataset) 
 }
 
-set.seed(1)
-
 # get an equal number of datapoints from both datasets
+set.seed(1)
 sampled.data = as.data.frame(rbind(
   first.dataset[sample(nrow(first.dataset), smaller_sample), ], 
   second.dataset[sample(nrow(second.dataset), smaller_sample), ]
 ))
 
 # rename columns with simplified marker names 
-colnames(sampled.data)[1:(length(sampled.data) - 2)] <- as.character(read.FCS(data.files[[1]])@parameters@data[["desc"]])
+colnames(sampled.data)[1:(length(sampled.data) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
 ```
 
 ```{r choose markers, scale data}
@@ -92,20 +95,27 @@ chosen.data = sampled.data[, c(3,9:14,19:31,33:54,57:61)]
 transformed.data = asinh(chosen.data/5) 
 ```
 
+```{r create output folder}
+dataset.names = unique(sampled.data$file_ID)
+output.folder = paste0("T-REX output, ", dataset.names[1], " vs ", dataset.names[2])
+dir.create(paste0(getwd(), "/data_files/brodin covid/", output.folder))
+```
+
 ```{r UMAP}
-setwd(paste0(getwd(),"/data_files/brodin covid"))
+setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
 
 # create UMAP (low dimensional embedding)
 myumap <- umap(transformed.data, ret_model = TRUE, verbose = TRUE)
 
 # uncomment the line below to save the UMAP 
-# save_uwot(myumap, paste0(getwd(), "/", output_location, output_dir, strftime(Sys.time(),"%Y-%m-%d_%H_%M"),"_umap_results"))
+save_uwot(myumap, paste0(getwd(), "/", strftime(Sys.time(),"%Y-%m-%d_%H_%M"),"_umap_results"))
 
 umap.data = as.data.frame(myumap$embedding)
 colnames(umap.data) <- c("UMAP1", "UMAP2")
 ```
+
 ```{r TREX}
-setwd(paste0(getwd(),"/data_files/brodin covid/TREX_output"))
+setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
 
 my.TREX <- TREX(
   embedding.data = cbind(umap.data, file_ID = sampled.data$file_ID),
@@ -114,17 +124,18 @@ my.TREX <- TREX(
 TREX_plot(
   binned.data = my.TREX,
   embed.type = "UMAP",
-  caption = "Data from Brodin lab in Rodriguez et al., Cell Rep Med. 2020"
+  caption = "Data from Brodin lab in Rodriguez et al., Cell Rep Med. 2020",
+  export = TRUE
 )
 ```
 
 ```{r}
-setwd(paste0(getwd(),"/data_files/brodin covid/TREX_output"))
-TREX_stats(my.TREX)
+setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+TREX_results(my.TREX, export = TRUE)
 ```
 
 ```{r clustering}
-setwd(paste0(getwd(),"/data_files/brodin covid/TREX_output"))
+setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
 
 my.clusters = TREX_cluster(
   binned.data = my.TREX, 
@@ -133,14 +144,21 @@ my.clusters = TREX_cluster(
 )
 
 TREX_cluster_plot(
-  track.data = my.clusters,
+  cluster.data = my.clusters,
   binned.data = my.TREX,
-  embed.type = "UMAP"
+  embed.type = "UMAP", 
+  export = TRUE
 )
+```
+```{r cluster mean % change}
+setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+TREX_cluster_results(my.clusters, export = TRUE)
 ```
 
 
 ```{r marker heatmaps}  
+setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+
 # create heatmaps of every marker across UMAP axes 
 umap.bychannel <- as_tibble(umap.data) %>%
   bind_cols(transformed.data)  %>%
@@ -167,7 +185,7 @@ umap.bychannel <- as_tibble(umap.data) %>%
 plot_grid(plotlist = ., align = 'hv', ncol = 8)
 
 png(
-  paste0(output_location, output_dir, strftime(Sys.time(),"%Y-%m-%d_%H_%M"), "_marker_heat.png"),
+  paste0(strftime(Sys.time(),"%Y-%m-%d_%H_%M"), "_marker_heat.png"),
   height = 2000,
   width = 4000
 )
@@ -176,10 +194,10 @@ dev.off()
 ```
 
 ```{r MEM}
-setwd(paste0(getwd(),"/data_files/brodin covid"))
+setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
 
 # run MEM on DBSCAN clusters 
-MEM.input = my.clusters[, c(5:ncol(my.clusters))]
+MEM.input = my.clusters[, c(6:ncol(my.clusters))]
 MEM.input <- MEM.input[order(MEM.input$cluster), ]
 MEM.values.KNN = MEM(
   MEM.input, 
