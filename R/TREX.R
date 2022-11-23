@@ -38,7 +38,6 @@ TREX <- function(embedding.data,
       }
     } 
     bins <- new.bins
-    cat(bins)
   }  
   
   # create bins of a given % 
@@ -69,7 +68,8 @@ TREX_plot <- function(binned.data,
                       title.height = -3,
                       embed.type = "Embedding",
                       percent.labels = TRUE,
-                      caption = NULL) {
+                      caption = NULL,
+                      export = FALSE) {
 
   # get dataset names from file_ID column 
   data.names = unique(binned.data$file_ID)
@@ -141,16 +141,18 @@ TREX_plot <- function(binned.data,
   )
   trex.titled <- arrangeGrob(trex.plot, top = titleGrobs, padding = unit(2.6, "line"))
 
-  ggsave(
-    paste0(
-      strftime(Sys.time(), "%Y-%m-%d_%H-%M"),
-      data.names[1], " vs ", data.names[2],
-      " T-REX plot.png"
-    ), 
-    plot = trex.titled, 
-    width = 8, 
-    height = 8
-  )
+  if (export) {
+    ggsave(
+      paste0(
+        strftime(Sys.time(), "%Y-%m-%d_%H-%M"),
+        data.names[1], " vs ", data.names[2],
+        " T-REX plot.png"
+      ), 
+      plot = trex.titled, 
+      width = 8, 
+      height = 8
+    )
+  }
   
   return(ggdraw(trex.titled))
 }
