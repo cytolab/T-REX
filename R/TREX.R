@@ -43,7 +43,6 @@ TREX <- function(embedding.data,
   
   # create bins of a given % 
   
-  
   # KNN search per cell 
   neighbor.index = knnx.index(embedding.data[, 1:2], embedding.data[, 1:2], k = kvalue)
   
@@ -156,7 +155,7 @@ TREX_plot <- function(binned.data,
   return(ggdraw(trex.titled))
 }
 
-TREX_stats <- function(binned.data) {
+TREX_results <- function(binned.data) {
   sample.table <- data.frame(total_cells = nrow(binned.data))
   sums = vector()
   num_bins = length(levels(binned.data$cuts))
