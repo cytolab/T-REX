@@ -7,7 +7,9 @@ TREX_cluster <- function(binned.data,
                          marker.data = NULL) {           
   
   if (!is.null(marker.data)) {
-    marker.data <- subset(marker.data, select = -c(file_ID))
+    if ("file_ID" %in% colnames(marker.data)) {
+      marker.data <- subset(marker.data, select = -c(file_ID))
+    }
     binned.data <- cbind(binned.data, marker.data)
   }
   
@@ -79,15 +81,21 @@ TREX_cluster_plot <- function(cluster.data,
 TREX_cluster_results <- function(cluster.data,
                                  export = FALSE) {
   
-  results.data = split(cluster.data, cluster.data$cluster)
-  median.percent.change = lapply(results.data, function(x) median(x[, which(colnames(x) == "percent.change")]))
-  mean.percent.change = lapply(results.data, function(x) mean(x[, which(colnames(x) == "percent.change")]))
+  split.data = split(cluster.data, cluster.data$cluster)
+  median.percent.change = lapply(split.data, function(x) median(x[, which(colnames(x) == "percent.change")]))
+  mean.percent.change = lapply(split.data, function(x) mean(x[, which(colnames(x) == "percent.change")]))
+  
+  results = data.frame(
+    cluster = unique(cluster.data$cluster),
+    median.change = unlist(median.percent.change),
+    mean.change = unlist(mean.percent.change)
+  )
   
   if (export) {
-    write.csv(mean.percent.change, paste0(strftime(Sys.time(),"%Y-%m-%d_%H%M"),"_cluster_ave_percent_change.csv"))
+    write.csv(mean.percent.change, paste0(strftime(Sys.time(),"%Y-%m-%d_%H%M"),"_cluster_percent_change.csv"), row.names = FALSE)
   }
   
-  return(mean.percent.change)
+  return(results)
 }
 
 TREX_counts <- function(cluster.data,
@@ -123,7 +131,7 @@ TREX_counts <- function(cluster.data,
   }
   
   if (export) {
-    write.csv(results, paste(strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_cluster_counts.csv"))
+    write.csv(results, paste(strftime(Sys.time(),"%Y-%m-%d_%H%M"),"_cluster_counts.csv"), row.names = FALSE)
   }
   
   return(results)
