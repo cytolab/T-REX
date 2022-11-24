@@ -94,33 +94,36 @@ TREX_counts <- function(cluster.data,
                         export = TRUE) {
   
   results = data.frame(cluster = unique(cluster.data$cluster))
-  results$bin <- factor(1, levels = levels(cluster.data$cuts))
   
-  # all cells in a cluster have the same cut, just use the first
-  for (i in results$cluster) {
-    results[i, ]$bin <- cluster.data[which(cluster.data$cluster == i)[1], ]$cuts
-  }
-  
-  # count how many cells are in each cluster
+  # count total cells in each cluster
   split.clusters = split(cluster.data, as.factor(cluster.data$cluster))
   results$total_cells <- sapply(split.clusters, NROW)
   
-  # count how many cells are in each bin 
-  # - cyclical analysis, do not include for now 
+  # find bins of interest
+  bins.of.interest = vector()
+  for(i in split.clusters) {
+    for (z in unique(i$cuts)) {
+      if (!z %in% bins.of.interest) {
+        bins.of.interest <- append(bins.of.interest, z)
+      }
+    }
+  }
+  bins.of.interest <- bins.of.interest[order(match(bins.of.interest, as.vector(levels(cluster.data$cuts))))]
   
-  # bins.of.interest = as.vector(unique(results$bin))
-  # results <- cbind(results, data.frame = (matrix(0, ncol = length(bins.of.interest))))
-  # colnames(results)[4:ncol(results)] <- bins.of.interest
-  # col_indx = 4
-  # for (w in bins.of.interest) {
-  #   for (i in 1:length(split.clusters)) {
-  #     results[i, col_indx] <- sum(split.clusters[[i]][["cuts"]] == w)
-  #   }
-  #   col_indx <- col_indx + 1
-  # }
+  # count how many cells are in each bin 
+  results <- cbind(results, data.frame = (matrix(0, ncol = length(bins.of.interest))))
+  colnames(results)[3:ncol(results)] <- bins.of.interest
+  
+  col_indx = 3
+  for (w in bins.of.interest) {
+    for (i in 1:length(split.clusters)) {
+      results[i, col_indx] <- sum(split.clusters[[i]][["cuts"]] == w)
+    }
+    col_indx <- col_indx + 1
+  }
   
   if (export) {
-    write.csv(cluster.data, paste(strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_cluster_counts.csv"))
+    write.csv(results, paste(strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_cluster_counts.csv"))
   }
   
   return(results)
