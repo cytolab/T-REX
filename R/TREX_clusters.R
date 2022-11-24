@@ -7,7 +7,9 @@ TREX_cluster <- function(binned.data,
                          marker.data = NULL) {           
   
   if (!is.null(marker.data)) {
-    marker.data <- subset(marker.data, select = -c(file_ID))
+    if ("file_ID" %in% colnames(marker.data)) {
+      marker.data <- subset(marker.data, select = -c(file_ID))
+    }
     binned.data <- cbind(binned.data, marker.data)
   }
   
@@ -123,7 +125,7 @@ TREX_counts <- function(cluster.data,
   }
   
   if (export) {
-    write.csv(results, paste(strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_cluster_counts.csv"))
+    write.csv(results, paste(strftime(Sys.time(),"%Y-%m-%d_%H%M"),"_cluster_counts.csv"), row.names = FALSE)
   }
   
   return(results)

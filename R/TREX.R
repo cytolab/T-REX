@@ -143,7 +143,7 @@ TREX_plot <- function(binned.data,
   if (export) {
     ggsave(
       paste0(
-        strftime(Sys.time(), "%Y-%m-%d_%H-%M "),
+        strftime(Sys.time(), "%Y-%m-%d_%H_%M "),
         data.names[1], " vs ", data.names[2],
         " T-REX plot.png"
       ), 

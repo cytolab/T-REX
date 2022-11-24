@@ -40,10 +40,10 @@ library(tidyverse)
 library(Biobase)
 library(dplyr)
 library(purrr)
-library(cowplot)
 
 # load T-REX functions from local folder 
 source("R/TREX.R")
+source("R/TREX_clusters.R")
 ```
 
 ```{r read in files}
@@ -117,39 +117,40 @@ colnames(umap.data) <- c("UMAP1", "UMAP2")
 ```{r TREX}
 setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
 
-my.TREX <- TREX(
+my.binned <- TREX(
   embedding.data = cbind(umap.data, file_ID = sampled.data$file_ID),
 )
 
 TREX_plot(
-  binned.data = my.TREX,
+  binned.data = my.binned,
   embed.type = "UMAP",
   caption = "Data from Brodin lab in Rodriguez et al., Cell Rep Med. 2020",
   export = TRUE
 )
 ```
 
-```{r}
+```{r calculate degree and direction of change}
 setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
-TREX_results(my.TREX, export = TRUE)
+TREX_results(my.binned, export = TRUE)
 ```
 
 ```{r clustering}
 setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
 
 my.clusters = TREX_cluster(
-  binned.data = my.TREX, 
+  binned.data = my.binned, 
   db.eps = 0.3, 
   marker.data = chosen.data
 )
 
 TREX_cluster_plot(
   cluster.data = my.clusters,
-  binned.data = my.TREX,
+  binned.data = my.binned,
   embed.type = "UMAP", 
   export = TRUE
 )
 ```
+
 ```{r cluster mean % change}
 setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
 TREX_cluster_results(my.clusters, export = TRUE)
@@ -226,47 +227,31 @@ build_heatmaps(
 ```
 
 ``` {r count cells in each cluster}
-setwd(paste0(getwd(),"/data_files/brodin covid/TREX_output"))
+setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
 
-all.clusters = split(my.clusters, as.factor(my.clusters$cluster))
-counts.total  <- sapply(all.clusters, NROW)
-counts.5 <- vector()
-for (i in 1:length(all.clusters)){
-  counts.5[i] = sum(all.clusters[[i]][["cuts"]] == '[0,5]')
-}
-counts.95 = counts.total - counts.5
-cluster.data = as.data.frame(counts.total)
-colnames(cluster.data) <- "total_counts"
-cluster.data$counts_5 <- counts.5
-cluster.data$counts_95 <- counts.95
-write.csv(cluster.data, paste(strftime(Sys.time(),"%Y-%m-%d_%H%M"), " DBSCAN_cluster_percentiles_counts_MEM.csv"))
-print(cluster.data)
+TREX_counts(my.clusters, export = TRUE)
 ```
 
 ```{r export_FCS_files}
-setwd(paste0(getwd(),"/data_files/brodin covid/TREX_output"))
+setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
 
 # export new FCS files with sampled data, percent change, and umap axes
-to.export = cbind(transformed.data, umap.data, my.TREX$percent.change)
-desc = colnames(to.export)[-c(ncol(my.sampled.data), (ncol(my.sampled.data)-1))]
-colnames(to.export)[1:ncol(my.sampled.data)] <- orig.names
-separate.fcs.files = split(to.export, to.export$`orig_ID`)
-for (i in 1:length(separate.fcs.files)) {
-  reduce.data = subset(separate.fcs.files[[i]], select = -c(`File_ID`, `orig_ID`))
+to.export = cbind(sampled.data, umap.data, percent.change = my.binned$percent.change)
+desc = colnames(to.export)
+desc <- desc[! desc %in% c("file_ID")]
+colnames(to.export)[1:ncol(sampled.data) - 1] <- orig.names
+sep.files = split(to.export, to.export$`file_ID`)
+for (i in 1:length(sep.files)) {
+  reduce.data = subset(sep.files[[i]], select = -c(`file_ID`))
   mat.input <- as.matrix(reduce.data)
   metadata <- data.frame(name = dimnames(mat.input)[[2]], desc = desc)
   metadata$range <- apply(apply(mat.input, 2, range), 2, diff)
   metadata$minRange <- apply(mat.input, 2, min)
   metadata$maxRange <- apply(mat.input, 2, max)
-  input.flowframe <- new("flowFrame", exprs = mat.input, parameters = AnnotatedDataFrame(metadata))  
-  newname  = str_remove(data.files[i], ".fcs")
-  new.filename = paste0(strftime(Sys.time(), "%Y-%m-%d_%H%M%S"), "_", newname, "_T-REX.fcs")
+  input.flowframe <- new("flowFrame", exprs = mat.input, parameters = AnnotatedDataFrame(metadata))
+  newname  = str_remove(data.filenames[i], ".fcs")
+  new.filename = paste0(strftime(Sys.time(), "%Y-%m-%d_%H%M"), "_", newname, "_T-REX.fcs")
   write.FCS(input.flowframe,filename = new.filename)
   print(paste("FCS file ",i," done", sep = ""))
 }
-
-# needs testing ^ 
-
-# print session information
-sessionInfo()
 ```
