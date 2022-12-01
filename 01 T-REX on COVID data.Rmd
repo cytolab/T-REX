@@ -86,9 +86,6 @@ sampled.data = as.data.frame(rbind(
   first.dataset[sample(nrow(first.dataset), smaller_sample), ], 
   second.dataset[sample(nrow(second.dataset), smaller_sample), ]
 ))
-
-# rename columns with marker names 
-colnames(sampled.data)[1:(length(sampled.data) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
 ```
 
 ```{r choose markers, scale data}
@@ -102,7 +99,7 @@ transformed.data = asinh(chosen.data/5)
 ```{r create output folder}
 dataset.names = unique(sampled.data$file_ID)
 output.folder = paste0("T-REX output, ", dataset.names[1], " vs ", dataset.names[2])
-dir.create(paste0(getwd(), "/data_files/brodin covid/", output.folder))
+dir.create(paste0(getwd(), "/data_files/brodin covid/",output.folder))
 ```
 
 ```{r UMAP}
@@ -227,7 +224,7 @@ umap.bychannel <- as_tibble(umap.data) %>%
   plot_grid(plotlist = ., align = 'hv', ncol = 8)
 
 png(
-  paste0(strftime(Sys.time(),"%Y-%m-%d_%H_%M"), "_marker_heat.png"),
+  paste0(strftime(Sys.time(),"%Y-%m-%d_%H-%M"), "_marker_heat.png"),
   height = 2000,
   width = 4000
 )
@@ -253,8 +250,8 @@ for (i in 1:length(sep.files)) {
   metadata$maxRange <- apply(mat.input, 2, max)
   input.flowframe <- new("flowFrame", exprs = mat.input, parameters = AnnotatedDataFrame(metadata))
   newname  = str_remove(data.filenames[i], ".fcs")
-  new.filename = paste0(strftime(Sys.time(), "%Y-%m-%d_%H%M"), "_", newname, "_T-REX.fcs")
-  write.FCS(input.flowframe,filename = new.filename)
+  new.filename = paste0(strftime(Sys.time(), "%Y-%m-%d_%H-%M"), "_", newname, "_T-REX.fcs")
+  write.FCS(input.flowframe, filename = new.filename)
   print(paste("FCS file ",i," done", sep = ""))
 }
 ```

@@ -1,8 +1,8 @@
 ---
 title: "T-REX Analysis on COVID Vaccine Data"
 author: "Sierra Barone"
-contributors: "Claire Cross, and Cass Mayeda"
-date: "09/02/2021"
+contributors: "Claire Cross, Hannah Thirman, and Cass Mayeda"
+date: "12/1/2022"
 output:
   html_document:
     df_print: paged
@@ -17,7 +17,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Data from Kramer et al., bioRxiv. 2021 (https://doi.org/10.1101/2021.07.28.453981)
 
-
 # uncomment lines below to install packages
 # if (!require("BiocManager", quietly = TRUE))
 #    install.packages("BiocManager")
@@ -25,163 +24,139 @@ knitr::opts_chunk$set(echo = TRUE)
 # install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 # install.packages("ggplot2", repos = "http://cran.us.r-project.org")
 # install.packages("tidyverse", repos = "http://cran.us.r-project.org")
-# install.packages("uwot", repos = "http://cran.us.r-project.org")
 # install.packages("dbscan", repos = "http://cran.us.r-project.org")
 # if (!requireNamespace("BiocManager", quietly = TRUE))
 #    install.packages("BiocManager")
 # BiocManager::install("flowCore")
 # BiocManager::install("Biobase")
 
-
 # load packages
 library(flowCore)
-library(uwot)
-library(FNN)
 library(ggplot2)
-library(dbscan)
+library(RColorBrewer)
 library(cytoMEM)
 library(tidyverse)
 library(Biobase)
-library(RColorBrewer)
 library(dplyr)
 library(purrr)
-library(cowplot)
 
+# load T-REX function from local folder
 source("R/TREX.R")
+source("R/TREX_clusters.R")
+```
 
+```{r read in files}
 # set working directory 
-setwd(paste(getwd(),"/data_files/covid vaccine", sep = ""))
+setwd(paste0(getwd(),"/data_files/covid vaccine"))
 
-# setup sample and T-REX info
-output_filename = "_T-REX"
-sample_type = "HIDI_COVID_Vaccine"
-sample_id = "VCV_016"
-time_comparison = "Post v Pre" 
-kvalue = 60
+# read in files 
+data.filenames <- dir(pattern = "*.fcs")
+first.dataset = as.data.frame(lapply(lapply(data.filenames[[1]], read.FCS), exprs))
+second.dataset = as.data.frame(lapply(lapply(data.filenames[[2]], read.FCS), exprs))
 
-# look at files
-data.files <-  dir(pattern = "*.fcs")
-print(data.files)
-# choose index for each dataset based on order of data.files
-first.dataset = 1
-second.dataset = 2
+# save original column names for final export to FCS files 
+orig.names = colnames(first.dataset)
 
-# combine paired samples
-first.dataset.data = as.data.frame(lapply(lapply(data.files[[first.dataset]], read.FCS), exprs))
-first.dataset.data$orig_ID = first.dataset
-first.dataset.data$File_ID = 1
-second.dataset.data = as.data.frame(lapply(lapply(data.files[[second.dataset]], read.FCS), exprs))
-second.dataset.data$orig_ID = second.dataset
-second.dataset.data$File_ID = 2
-paired.data = rbind(first.dataset.data, second.dataset.data)
-orig.names <- colnames(paired.data)
-colnames(paired.data)[1:(length(paired.data) - 2)] <- as.character(read.FCS(data.files[[1]])@parameters@data[["desc"]])
+# rename columns with marker names 
+colnames(first.dataset)[1:(length(first.dataset) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
+colnames(second.dataset)[1:(length(second.dataset) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
+
+# create meaningful names for data sets to be analyzed 
+first.dataset$file_ID = "Pre vaccine"
+second.dataset$file_ID = "Post vaccine"
 ```
 
-```{r equal_sampling}
-# set seed and equally sample based on limiting sample
+```{r equal sampling}
+setwd(paste0(getwd(),"/data_files/covid vaccine"))
+
+# find number of data points in smaller sample 
+smaller_sample = nrow(first.dataset) 
+if (nrow(second.dataset) < smaller_sample) { 
+  smaller_sample <- nrow(second.dataset) 
+}
+
+# set a seed to get a reproducible sample 
 set.seed(1)
-files.to.sample = split(paired.data,paired.data$`File_ID`)
-sampled.data <- list()
-for (i in 1: length(files.to.sample)){
-    sampled.data[[i]] = as.data.frame(files.to.sample[[i]][sample(nrow(files.to.sample[[i]]), min(sapply(files.to.sample, nrow))), ])}
-my.sampled.data = as.data.frame(do.call(rbind, sampled.data))
+
+# get an equal number of data points from both data sets
+sampled.data = as.data.frame(rbind(
+  first.dataset[sample(nrow(first.dataset), smaller_sample), ], 
+  second.dataset[sample(nrow(second.dataset), smaller_sample), ]
+))
 ```
 
-```{r scaling_and_filtering}
-# choose markers to make low dimensional projection of the data and scale them accordingly 
-#colnames(my.sampled.data)   
-my.chosen.sampled.data = my.sampled.data[,c(3,8,10:14,16,27,29,33:38,42,44:46,50,52:53,55:60,62,70)]
-#colnames(my.chosen.sampled.data) 
-cofactor = c(45,15,10,10,10,15,5,15,25,15,15,15,15,15,25,25,15,15,25,15,15,45,15,15,45,25,25,15,25,15,25)
+```{r choose markers, scale data}
+# choose markers to make low dimensional embedding
+chosen.data = sampled.data[ ,c(3,8,10:14,16,27,29,33:38,42,44:46,50,52:53,55:60,62,70)]
 
-transformed.data = as.data.frame(t(apply(my.chosen.sampled.data, 1, function(x) asinh(x/cofactor))))
-tsne.input = transformed.data
+# scale data 
+cofactor = c(45,15,10,10,10,15,5,15,25,15,15,15,15,15,25,25,15,15,25,15,15,45,15,15,45,25,25,15,25,15,25)
+transformed.data = as.data.frame(t(apply(chosen.data, 1, function(x) asinh(x/cofactor))))
+
+# if running a t-SNE, use transformed.data as the input 
 ```
 
 ```{r tsne}
-setwd(paste(getwd(),"/data_files/covid vaccine", sep = ""))
-
-dir.create("./TREX_output/")
-tsne.data = as.data.frame(cbind(my.sampled.data$tSNE1,my.sampled.data$tSNE2))
+# select data from a previously created t-SNE 
+tsne.data = as.data.frame(cbind(sampled.data$tSNE1, sampled.data$tSNE2))
 colnames(tsne.data) <- c("tSNE1", "tSNE2")
 ```
 
+```{r create output folder}
+dataset.names = unique(sampled.data$file_ID)
+output.folder = paste0("T-REX output, ", dataset.names[1], " vs ", dataset.names[2])
+dir.create(paste0(getwd(),"/data_files/covid vaccine/",output.folder))
+```
+
 ```{r run TREX}
-setwd(paste0(getwd(),"/data_files/covid vaccine/TREX_output"))
+setwd(paste0(getwd(),"/data_files/covid vaccine/",output.folder))
 
-my.binned = TREX(cbind(tsne.data, my.sampled.data$File_ID))
-
-TREX_plot(my.binned, embed.type = "t-SNE")
+my.binned = TREX(cbind(tsne.data, file_ID = sampled.data$file_ID))
+TREX_plot(
+  my.binned, 
+  embed.type = "t-SNE", 
+  caption = "Data from Kramer et al., bioRxiv. 2021",
+  export = TRUE
+)
 ```
-  
-```{r trex_results}  
-setwd(paste(getwd(),"/data_files/covid vaccine", sep = ""))
+```{r calculate degree and direction of change}
+setwd(paste0(getwd(),"/data_files/covid vaccine/",output.folder))
 
-tsne.bychannel <- as_tibble(tsne.data) %>%
-  bind_cols(transformed.data)  %>%
-  gather(channel, intensity, -tSNE1, -tSNE2) %>%
-  mutate(across(channel,factor))%>%
-  group_split(channel) %>%
-  map(
-    ~ggplot(.,aes(x = tSNE1, y = tSNE2, col = intensity)) +
-      geom_point(shape = ".", size = 8) +
-      scale_color_gradientn(
-        colours = colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(5)) +
-      facet_grid(~ channel, labeller = function(x) label_value(x, multi_line = FALSE)) +
-      coord_fixed() +
-      theme_bw() +
-      theme(strip.text.x = element_text(size = 20), legend.title = element_blank())) %>%
-  plot_grid(plotlist = ., align = 'hv', ncol = 8)
-
-png(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"t-SNE on transformed data.png"),height = 2000,width = 4000)
-print(tsne.bychannel)
-dev.off()
-
-# uncomment lines below to plot heat on markers on tsne axes
-# plot.to.output<-list()
-# for (i in 1:ncol(tsne.input)){
-#   color.plot <- data.frame(x = tsne.data[,1], y = tsne.data[,2], col = tsne.input[,c(i)])
-#   order.plot <- color.plot[order(color.plot$col),]
-#   print(ggplot(order.plot) + 
-#           geom_point(aes(x = x, y = y, col = col), cex = 0.1, shape = 1) + 
-#           coord_fixed(ratio = graphical.ratio) +
-#           scale_color_gradientn(colours = colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(50)) + 
-#           labs(x = "tSNE1", y = "tSNE2", col = colnames(tsne.input)[i]) +
-#           theme_bw() + 
-#           theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
-#   )
-# }
-```
-
-```{r TREX stats}
-setwd(paste0(getwd(),"/data_files/covid vaccine/TREX_output"))
-
-TREX_stats(my.binned)
+TREX_results(my.binned, export = TRUE)
 ```
 
 ```{r clustering}
-setwd(paste0(getwd(),"/data_files/covid vaccine/TREX_output"))
+setwd(paste0(getwd(),"/data_files/covid vaccine/",output.folder))
 
 my.clusters = TREX_cluster(
-  my.binned, 
+  binned.data = my.binned, 
   db.eps = 4, 
-  marker.data = my.sampled.data
+  marker.data = sampled.data
 )
 
-TREX_cluster_plot(my.clusters, my.binned, embed.type = "t-SNE")
+TREX_cluster_plot(
+  cluster.data = my.clusters, 
+  binned.data = my.binned, 
+  embed.type = "t-SNE", 
+  export = TRUE
+)
+```
+
+```{r cluster mean % change}
+setwd(paste0(getwd(),"/data_files/covid vaccine/",output.folder)) 
+TREX_cluster_results(my.clusters, export = TRUE)
 ```
 
 ```{r MEM}
-setwd(paste0(getwd(),"/data_files/covid vaccine"))
+setwd(paste0(getwd(),"/data_files/covid vaccine/",output.folder))
 
 # select markers
-MEM.input = my.clusters[, c(7,12,14:18,20,31:35,37:42,44,46,48:54,56:66,74,85)]
+MEM.input = my.clusters[, c(8,13,15:19,21,32:36,38:43,45,47,49:55,57:67,75,84)]
 
 # scale marker data 
 cofactor = c(45,15,10,10,10,15,5,15,25,25,15,15,15,15,15,15,15,25,25,15,15,15,25,15,25,25,15,15,45,15,15,15,45,25,25,15,25,25,15,25,1)
 MEM.input <- as.data.frame(t(apply(MEM.input, 1, function(x) asinh(x/cofactor))))
-MEM.input[, 41] <- my.clusters[, 85]
+MEM.input[, 41] <- my.clusters[, 84]
 
 # run MEM and rename markers 
 MEM.output = MEM(
@@ -200,43 +175,67 @@ build_heatmaps(
 
 ```
 
-```{r}
-all.clusters = split(track.data,as.factor(track.data$cluster))
-counts.total  <- sapply(all.clusters, NROW)
-counts.5<-vector()
-for (i in 1:length(all.clusters)){
-  counts.5[i] = sum(all.clusters[[i]][["status"]] == '[0,5]')}
-counts.95 = counts.total-counts.5
-cluster.data = as.data.frame(counts.total)
-colnames(cluster.data)<- "total_counts"
-cluster.data$counts_5<-counts.5
-cluster.data$counts_95<-counts.95
-write.csv(cluster.data,paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S")," DBSCAN_cluster_percentiles_counts_MEM.csv",sep =""))
-print(cluster.data)
+```{r count cells in each cluster}
+setwd(paste0(getwd(),"/data_files/covid vaccine/",output.folder))
+TREX_counts(my.clusters, export = TRUE)
 ```
 
+```{r marker heatmaps }  
+setwd(paste0(getwd(),"/data_files/covid vaccine/",output.folder))
+
+tsne.bychannel <- as_tibble(tsne.data) %>%
+  bind_cols(transformed.data)  %>%
+  gather(channel, intensity, -tSNE1, -tSNE2) %>%
+  mutate(across(channel,factor))%>%
+  group_split(channel) %>%
+  map(
+    ~ggplot(.,aes(x = tSNE1, y = tSNE2, col = intensity)) +
+      geom_point(shape = ".", size = 8) +
+      scale_color_gradientn(
+        colours = colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(5)) +
+      facet_grid(~ channel, labeller = function(x) label_value(x, multi_line = FALSE)) +
+      coord_fixed() +
+      theme_bw() +
+      theme(
+        strip.text.x = element_text(size = 20),
+        legend.title = element_blank(),
+        panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank()
+      )
+    ) %>%
+  plot_grid(plotlist = ., align = 'hv', ncol = 8)
+
+png(
+  paste(output.folder,strftime(Sys.time(),"%Y-%m-%d_%H-%M"),"_marker_heat.png"),
+  height = 2000,
+  width = 4000
+)
+print(tsne.bychannel)
+dev.off()
+```
 
 ```{r export_FCS_files}
-setwd(paste(getwd(),"/data_files/covid vaccine", sep = ""))
+setwd(paste0(getwd(),"/data_files/covid vaccine/",output.folder))
 
 # export new FCS files with sampled data, percent change, and tsne axes
-to.export = cbind(my.sampled.data,tsne.data,percent_change)
-desc = colnames(to.export)[-c((ncol(my.sampled.data)-1):ncol(my.sampled.data))]
-colnames(to.export)[1:ncol(my.sampled.data)]<-orig.names
-separate.fcs.files = split(to.export,to.export$`orig_ID`)
-for (i in 1:length(separate.fcs.files)){
-reduce.data = subset(separate.fcs.files[[i]], select=-c(`File_ID`,`orig_ID`))
-mat.input<- as.matrix(reduce.data)
-metadata <- data.frame(name = dimnames(mat.input)[[2]], desc = desc)
-metadata$range <- apply(apply(mat.input, 2, range), 2, diff)
-metadata$minRange <- apply(mat.input, 2, min)
-metadata$maxRange <- apply(mat.input, 2, max)
-input.flowframe <- new("flowFrame", exprs=mat.input,parameters = AnnotatedDataFrame(metadata))  
-newname  = str_remove(data.files[i], ".fcs")
-new.filename = paste0("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_",newname,"_T-REX.fcs",sep="")
-write.FCS(input.flowframe,filename = new.filename)
-print(paste("FCS file ",i," done", sep = ""))}
-
-# print session information
-sessionInfo()
+to.export = cbind(sampled.data, tsne.data, percent.change = my.binned$percent.change)
+desc = colnames(to.export)
+desc <- desc[! desc %in% c("file_ID")]
+colnames(to.export)[1:ncol(sampled.data) - 1] <- orig.names
+sep.files = split(to.export, to.export$`file_ID`)
+for (i in 1:length(sep.files)){
+  reduce.data = subset(sep.files[[i]], select = -c(`file_ID`))
+  mat.input<- as.matrix(reduce.data)
+  metadata <- data.frame(name = dimnames(mat.input)[[2]], desc = desc)
+  metadata$range <- apply(apply(mat.input, 2, range), 2, diff)
+  metadata$minRange <- apply(mat.input, 2, min)
+  metadata$maxRange <- apply(mat.input, 2, max)
+  input.flowframe <- new("flowFrame", exprs = mat.input, parameters = AnnotatedDataFrame(metadata))  
+  newname  = str_remove(data.filenames[i], ".fcs")
+  new.filename = paste0("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H-%M"), "_", newname,"_T-REX.fcs")
+  write.FCS(input.flowframe, filename = new.filename)
+  print(paste("FCS file ",i," done", sep = ""))
+}
 ```
