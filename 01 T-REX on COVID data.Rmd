@@ -2,7 +2,7 @@
 title: "T-REX Analysis on COVID Data"
 author: "Sierra Barone"
 contributors: "Claire Cross, Hannah Thirman, and Cass Mayeda"
-date: "09/02/2022"
+date: "11/23/2022"
 output:
   html_document:
     df_print: paged
@@ -35,6 +35,8 @@ knitr::opts_chunk$set(echo = TRUE)
 # load packages
 library(flowCore)
 library(uwot)
+library(ggplot2)
+library(RColorBrewer)
 library(cytoMEM)
 library(tidyverse)
 library(Biobase)
@@ -58,32 +60,34 @@ second.dataset = as.data.frame(lapply(lapply(data.filenames[[2]], read.FCS), exp
 # save original column names for final export to FCS files 
 orig.names = colnames(first.dataset)
 
+# rename columns with marker names 
+colnames(first.dataset)[1:(length(first.dataset) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
+colnames(second.dataset)[1:(length(second.dataset) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
+
 # create meaningful names for data sets to be analyzed 
 first.dataset$file_ID = "Timepoint 1"
 second.dataset$file_ID = "Timepoint 2"
-
-# rename columns with simplified marker names 
-colnames(first.dataset)[1:(length(first.dataset) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
-colnames(second.dataset)[1:(length(second.dataset) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
 ```
 
 ```{r equal sampling}
 setwd(paste0(getwd(),"/data_files/brodin covid"))
 
-# find number of datapoints in smaller sample 
+# find number of data points in smaller sample 
 smaller_sample = nrow(first.dataset) 
 if (nrow(second.dataset) < smaller_sample) { 
   smaller_sample <- nrow(second.dataset) 
 }
 
-# get an equal number of datapoints from both datasets
+# set a seed to get a reproducible sample 
 set.seed(1)
+
+# get an equal number of data points from both data sets
 sampled.data = as.data.frame(rbind(
   first.dataset[sample(nrow(first.dataset), smaller_sample), ], 
   second.dataset[sample(nrow(second.dataset), smaller_sample), ]
 ))
 
-# rename columns with simplified marker names 
+# rename columns with marker names 
 colnames(sampled.data)[1:(length(sampled.data) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
 ```
 
@@ -102,20 +106,20 @@ dir.create(paste0(getwd(), "/data_files/brodin covid/", output.folder))
 ```
 
 ```{r UMAP}
-setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+setwd(paste0(getwd(),"/data_files/brodin covid/",output.folder))
 
 # create UMAP (low dimensional embedding)
 myumap <- umap(transformed.data, ret_model = TRUE, verbose = TRUE)
 
 # uncomment the line below to save the UMAP 
-save_uwot(myumap, paste0(getwd(), "/", strftime(Sys.time(),"%Y-%m-%d_%H_%M"),"_umap_results"))
+# save_uwot(myumap, paste0(getwd(), "/", strftime(Sys.time(),"%Y-%m-%d_%H_%M"),"_umap_results"))
 
 umap.data = as.data.frame(myumap$embedding)
 colnames(umap.data) <- c("UMAP1", "UMAP2")
 ```
 
 ```{r TREX}
-setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+setwd(paste0(getwd(),"/data_files/brodin covid/",output.folder))
 
 my.binned <- TREX(
   embedding.data = cbind(umap.data, file_ID = sampled.data$file_ID),
@@ -131,6 +135,7 @@ TREX_plot(
 
 ```{r calculate degree and direction of change}
 setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+
 TREX_results(my.binned, export = TRUE)
 ```
 
@@ -154,44 +159,6 @@ TREX_cluster_plot(
 ```{r cluster mean % change}
 setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
 TREX_cluster_results(my.clusters, export = TRUE)
-```
-
-
-```{r marker heatmaps}  
-setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
-
-# create heatmaps of every marker across UMAP axes 
-umap.bychannel <- as_tibble(umap.data) %>%
-  bind_cols(transformed.data)  %>%
-  gather(channel, intensity, -UMAP1, -UMAP2) %>%
-  mutate(across(channel, factor)) %>%
-  group_split(channel) %>%
-  map(
-    ~ggplot(., aes(x = UMAP1, y = UMAP2, col = intensity)) +
-      geom_point(shape = ".", size = 8) +
-      scale_color_gradientn(
-        colours = colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(5)) +
-      facet_grid(~ channel, labeller = function(x) label_value(x, multi_line = FALSE)) +
-      coord_fixed() +
-      theme_bw() +
-      theme(
-        strip.text.x = element_text(size = 20),
-        legend.title = element_blank(),
-        panel.grid = element_blank(),
-        axis.title = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank()
-      )
-    ) %>%
-plot_grid(plotlist = ., align = 'hv', ncol = 8)
-
-png(
-  paste0(strftime(Sys.time(),"%Y-%m-%d_%H_%M"), "_marker_heat.png"),
-  height = 2000,
-  width = 4000
-)
-print(umap.bychannel)
-dev.off()
 ```
 
 ```{r MEM}
@@ -230,6 +197,42 @@ build_heatmaps(
 setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
 
 TREX_counts(my.clusters, export = TRUE)
+```
+```{r marker heatmaps}  
+setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+
+# create heatmaps of every marker across UMAP axes 
+umap.bychannel <- as_tibble(umap.data) %>%
+  bind_cols(transformed.data)  %>%
+  gather(channel, intensity, -UMAP1, -UMAP2) %>%
+  mutate(across(channel, factor)) %>%
+  group_split(channel) %>%
+  map(
+    ~ggplot(., aes(x = UMAP1, y = UMAP2, col = intensity)) +
+      geom_point(shape = ".", size = 8) +
+      scale_color_gradientn(
+        colours = colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(5)) +
+      facet_grid(~ channel, labeller = function(x) label_value(x, multi_line = FALSE)) +
+      coord_fixed() +
+      theme_bw() +
+      theme(
+        strip.text.x = element_text(size = 20),
+        legend.title = element_blank(),
+        panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank()
+      )
+    ) %>%
+  plot_grid(plotlist = ., align = 'hv', ncol = 8)
+
+png(
+  paste0(strftime(Sys.time(),"%Y-%m-%d_%H_%M"), "_marker_heat.png"),
+  height = 2000,
+  width = 4000
+)
+print(umap.bychannel)
+dev.off()
 ```
 
 ```{r export_FCS_files}
