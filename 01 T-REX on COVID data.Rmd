@@ -18,17 +18,16 @@ knitr::opts_chunk$set(echo = TRUE)
 # Data from Brodin lab in Rodriguez et al., Cell Rep Med. 2020 (https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7405891/)
 
 # uncomment lines below to install packages
-# if (!require("BiocManager", quietly = TRUE))
-#    install.packages("BiocManager")
-# BiocManager::install("cytoMEM")
 # install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 # install.packages("ggplot2", repos = "http://cran.us.r-project.org")
 # install.packages("FNN", repos = "http://cran.us.r-project.org")
-# install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 # install.packages("uwot", repos = "http://cran.us.r-project.org")
 # install.packages("dbscan", repos = "http://cran.us.r-project.org")
-# if (!requireNamespace("BiocManager", quietly = TRUE))
+# install.packages("fancycut", repos = "http://cran.us.r-project.org")
+# install.packages("gridExtra", repos = "http://cran.us.r-project.org")
+# if (!require("BiocManager", quietly = TRUE))
 #    install.packages("BiocManager")
+# BiocManager::install("cytoMEM")
 # BiocManager::install("flowCore")
 # BiocManager::install("Biobase")
 
@@ -42,6 +41,7 @@ library(tidyverse)
 library(Biobase)
 library(dplyr)
 library(purrr)
+library(cowplot)
 
 # load T-REX functions from local folder 
 source("R/TREX.R")
@@ -62,7 +62,7 @@ orig.names = colnames(first.dataset)
 
 # rename columns with marker names 
 colnames(first.dataset)[1:(length(first.dataset) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
-colnames(second.dataset)[1:(length(second.dataset) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
+colnames(second.dataset)[1:(length(second.dataset) - 2)] <- as.character(read.FCS(data.filenames[[2]])@parameters@data[["desc"]])
 
 # create meaningful names for data sets to be analyzed 
 first.dataset$file_ID = "Timepoint 1"
@@ -70,8 +70,6 @@ second.dataset$file_ID = "Timepoint 2"
 ```
 
 ```{r equal sampling}
-setwd(paste0(getwd(),"/data_files/brodin covid"))
-
 # find number of data points in smaller sample 
 smaller_sample = nrow(first.dataset) 
 if (nrow(second.dataset) < smaller_sample) { 
@@ -115,7 +113,7 @@ umap.data = as.data.frame(myumap$embedding)
 colnames(umap.data) <- c("UMAP1", "UMAP2")
 ```
 
-```{r TREX}
+```{r run TREX}
 setwd(paste0(getwd(),"/data_files/brodin covid/",output.folder))
 
 my.binned <- TREX(
@@ -161,10 +159,10 @@ TREX_cluster_results(my.clusters, export = TRUE)
 ```{r MEM}
 setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
 
-# run MEM on DBSCAN clusters 
+# run MEM on DBSCAN clusters from 5th and 95th percentiles
 MEM.input = my.clusters[, c(6:ncol(my.clusters))]
 MEM.input <- MEM.input[order(MEM.input$cluster), ]
-MEM.values.KNN = MEM(
+MEM.output = MEM(
   MEM.input, 
   transform = TRUE, 
   cofactor = 5,
@@ -181,7 +179,7 @@ MEM.values.KNN = MEM(
   scale.factor = 1
 )
 build_heatmaps(
-  MEM.values.KNN, 
+  MEM.output, 
   cluster.MEM = "none", 
   cluster.medians = "none",
   display.thresh = 1, 
@@ -232,7 +230,7 @@ print(umap.bychannel)
 dev.off()
 ```
 
-```{r export_FCS_files}
+```{r export FCS files}
 setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
 
 # export new FCS files with sampled data, percent change, and umap axes

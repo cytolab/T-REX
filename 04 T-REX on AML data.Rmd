@@ -18,17 +18,16 @@ knitr::opts_chunk$set(echo = TRUE)
 # Data from Ferrell et al., PLOS One. 2016 (https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4830605/)
 
 # uncomment lines below to install packages
-# if (!require("BiocManager", quietly = TRUE))
-#    install.packages("BiocManager")
-# BiocManager::install("cytoMEM")
 # install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 # install.packages("ggplot2", repos = "http://cran.us.r-project.org")
 # install.packages("FNN", repos = "http://cran.us.r-project.org")
-# install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 # install.packages("uwot", repos = "http://cran.us.r-project.org")
 # install.packages("dbscan", repos = "http://cran.us.r-project.org")
+# install.packages("fancycut", repos = "http://cran.us.r-project.org")
+# install.packages("gridExtra", repos = "http://cran.us.r-project.org")
 # if (!requireNamespace("BiocManager", quietly = TRUE))
 #    install.packages("BiocManager")
+# BiocManager::install("cytoMEM")
 # BiocManager::install("flowCore")
 # BiocManager::install("Biobase")
 
@@ -142,7 +141,7 @@ print(umap.bychannel)
 dev.off()
 ```
 
-```{r TREX}
+```{r run TREX}
 setwd(paste0(getwd(),"/data_files/aml/TREX_output"))
 
 my.binned = TREX(cbind(umap.data, sampled.data$file_ID))
@@ -213,7 +212,7 @@ write.csv(cluster.data,paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%
 print(cluster.data)
 ```
 
-```{r export_FCS_files}
+```{r export FCS files}
 setwd(paste(getwd(),"/data_files/aml", sep = ""))
 
 # export new FCS files with sampled data, percent change, and umap axes

@@ -18,15 +18,15 @@ knitr::opts_chunk$set(echo = TRUE)
 # Data from Kramer et al., bioRxiv. 2021 (https://doi.org/10.1101/2021.07.28.453981)
 
 # uncomment lines below to install packages
-# if (!require("BiocManager", quietly = TRUE))
-#    install.packages("BiocManager")
-# BiocManager::install("cytoMEM")
 # install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 # install.packages("ggplot2", repos = "http://cran.us.r-project.org")
-# install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+# install.packages("FNN", repos = "http://cran.us.r-project.org")
 # install.packages("dbscan", repos = "http://cran.us.r-project.org")
+# install.packages("fancycut", repos = "http://cran.us.r-project.org")
+# install.packages("gridExtra", repos = "http://cran.us.r-project.org")
 # if (!requireNamespace("BiocManager", quietly = TRUE))
 #    install.packages("BiocManager")
+# BiocManager::install("cytoMEM")
 # BiocManager::install("flowCore")
 # BiocManager::install("Biobase")
 
@@ -158,7 +158,8 @@ cofactor = c(45,15,10,10,10,15,5,15,25,25,15,15,15,15,15,15,15,25,25,15,15,15,25
 MEM.input <- as.data.frame(t(apply(MEM.input, 1, function(x) asinh(x/cofactor))))
 MEM.input[, 41] <- my.clusters[, 84]
 
-# run MEM and rename markers 
+# run MEM on DBSCAN clusters from 5th and 95th percentiles 
+# rename markers 
 MEM.output = MEM(
   MEM.input, 
   zero.ref = TRUE,
@@ -216,7 +217,7 @@ print(tsne.bychannel)
 dev.off()
 ```
 
-```{r export_FCS_files}
+```{r export FCS files}
 setwd(paste0(getwd(),"/data_files/covid vaccine/",output.folder))
 
 # export new FCS files with sampled data, percent change, and tsne axes

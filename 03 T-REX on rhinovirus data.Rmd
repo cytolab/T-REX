@@ -17,21 +17,18 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Data from Barone et al., eLife. 2021 (https://elifesciences.org/articles/64653)
 
-
 # uncomment lines below to install packages
-# if (!require("BiocManager", quietly = TRUE))
-#    install.packages("BiocManager")
-# BiocManager::install("cytoMEM")
 # install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 # install.packages("ggplot2", repos = "http://cran.us.r-project.org")
-# install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 # install.packages("uwot", repos = "http://cran.us.r-project.org")
 # install.packages("dbscan", repos = "http://cran.us.r-project.org")
+# install.packages("fancycut", repos = "http://cran.us.r-project.org")
+# install.packages("gridExtra", repos = "http://cran.us.r-project.org")
 # if (!requireNamespace("BiocManager", quietly = TRUE))
 #    install.packages("BiocManager")
+# BiocManager::install("cytoMEM")
 # BiocManager::install("flowCore")
 # BiocManager::install("Biobase")
-
 
 # load packages
 library(flowCore)
@@ -49,83 +46,154 @@ library(cowplot)
 
 # load TREX functions from local folder 
 source("R/TREX.R")
+source("R/TREX_clusters.R")
 ```
 
 ```{r read in files}
 # set working directory 
 setwd(paste(getwd(),"/data_files/rhinovirus", sep = ""))
 
-data.files <-  dir(pattern = "*.fcs")
+# read in files 
+data.filenames <- dir(pattern = "*.fcs")
+first.dataset = as.data.frame(lapply(lapply(data.filenames[[1]], read.FCS), exprs))
+second.dataset = as.data.frame(lapply(lapply(data.filenames[[2]], read.FCS), exprs))
 
-# choose index for each dataset based on order of data.files
-first.dataset = 1
-second.dataset = 2
+# save original column names for final export to FCS files 
+orig.names <- colnames(first.dataset)
 
-# combine paired samples
-first.dataset.data = as.data.frame(lapply(lapply(data.files[[first.dataset]], read.FCS), exprs))
-first.dataset.data$orig_ID = first.dataset
-first.dataset.data$File_ID = 1
-second.dataset.data = as.data.frame(lapply(lapply(data.files[[second.dataset]], read.FCS), exprs))
-second.dataset.data$orig_ID = second.dataset
-second.dataset.data$File_ID = 2
-paired.data = rbind(first.dataset.data, second.dataset.data)
-orig.names <- colnames(paired.data)
-colnames(paired.data)[1:(length(paired.data) - 2)] <- as.character(read.FCS(data.files[[1]])@parameters@data[["desc"]])
+# rename columns with marker names 
+colnames(first.dataset)[1:(length(first.dataset) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
+colnames(second.dataset)[1:(length(second.dataset) - 2)] <- as.character(read.FCS(data.filenames[[2]])@parameters@data[["desc"]])
+
+# create meaningful names for data sets to be analyzed
+first.dataset$file_ID = "day 0"
+second.dataset$file_ID = "day 28"
 ```
 
-```{r equal_sampling}
-# set seed and equally sample based on limiting sample
+```{r equal sampling}
+# find number of data points in smaller sample 
+smaller_sample = nrow(first.dataset) 
+if (nrow(second.dataset) < smaller_sample) { 
+  smaller_sample <- nrow(second.dataset) 
+}
+
+# set a seed to get a reproducible sample 
 set.seed(1)
-files.to.sample = split(paired.data,paired.data$`File_ID`)
-sampled.data <- list()
-for (i in 1: length(files.to.sample)){
-    sampled.data[[i]] = as.data.frame(files.to.sample[[i]][sample(nrow(files.to.sample[[i]]), min(sapply(files.to.sample, nrow))), ])}
-my.sampled.data = as.data.frame(do.call(rbind, sampled.data))
+
+# get an equal number of data points from both data sets
+sampled.data = as.data.frame(rbind(
+  first.dataset[sample(nrow(first.dataset), smaller_sample), ], 
+  second.dataset[sample(nrow(second.dataset), smaller_sample), ]
+))
 ```
 
-```{r scaling_and_filtering}
-# choose markers to make low dimensional projection
-my.chosen.sampled.data = my.sampled.data[,c(8:12,14:18,21,25:29,31)]
+```{r choose markers, scale data}
+# choose markers to use in later analysis 
+chosen.data = sampled.data[, c(8:12,14:18,21,25:29,31)]
 
-# scale data with a cofactor of 6000
-transformed.data = as.data.frame(t(apply(my.chosen.sampled.data, 1, function(x) asinh(x/6000))))
-umap.input = transformed.data[,c(1:5,7:13,16:17)]
+# scale data with a cofactor of 6000 
+transformed.data = as.data.frame(t(apply(chosen.data, 1, function(x) asinh(x/6000))))
+```
+
+```{r create output folder}
+dataset.names = unique(sampled.data$file_ID)
+output.folder = paste0("T-REX output, ", dataset.names[1], " vs ", dataset.names[2])
+dir.create(paste0(getwd(), "/data_files/rhinovirus/", output.folder))
 ```
 
 ```{r UMAP}
-setwd(paste0(getwd(),"/data_files/rhinovirus/TREX_output"))
+setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
 
-dir.create("./TREX_output/")
+# select markers to make low dimensional embedding
+# umap.input = transformed.data[, c(1:5,7:13,16:17)]
 
 # uncomment lines below to run UMAP amd save model
 # myumap <- umap(umap.input, ret_model = TRUE, verbose = TRUE)
 # save_uwot(myumap, paste0(strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"_umap_model_results"))
 
-# select saved UMAP from datafiles  
-umap.data <- as.data.frame(cbind(my.sampled.data$UMAP1,my.sampled.data$UMAP2))
+# select data from a previously created UMAP   
+umap.data <- as.data.frame(cbind(sampled.data$UMAP1, sampled.data$UMAP2))
 colnames(umap.data) <- c("UMAP1", "UMAP2")
 ```
 
 ```{r run TREX}
-setwd(paste0(getwd(),"/data_files/rhinovirus/TREX_output"))
+setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
 
-my.binned = TREX(cbind(umap.data, my.sampled.data$File_ID))
+my.binned = TREX(cbind(umap.data, file_ID = sampled.data$file_ID))
 
 TREX_plot(
-  my.binned, 
+  binned.data = my.binned, 
   embed.type = "UMAP",
-  title = "Pre-infection vs. Acute infection",
-  caption = "Data from Barone et al., eLife. 2021"
+  caption = "Data from Barone et al., eLife. 2021",
+  export = TRUE
 )
 ```
-```{r trex_results}
-setwd(paste0(getwd(),"/data_files/rhinovirus/TREX_output"))
-TREX_stats(my.binned)
+```{r calculate degree and direction of change}
+setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+TREX_results(my.binned, export = TRUE)
 ```
 
-  
-```{r marker_heatmaps}  
-setwd(paste0(getwd(),"/data_files/rhinovirus/TREX_output"))
+```{r clustering}
+setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+
+my.clusters = TREX_cluster(
+  binned.data = my.binned, 
+  db.eps = 0.4,
+  marker.data = sampled.data[, c(8:12,14:18,21,25:29,31)]
+)
+
+TREX_cluster_plot(
+  cluster.data = my.clusters, 
+  binned.data = my.binned, 
+  embed.type = "UMAP",
+  export = TRUE
+)
+```
+
+```{r cluster mean % change}
+setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+TREX_cluster_results(my.clusters, export = TRUE)
+```
+
+
+```{r MEM}
+setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+
+# run MEM on DBSCAN clusters from 5th and 95th percentiles 
+MEM.input = my.clusters[, c(6:ncol(my.clusters))]
+MEM.input <- MEM.input[order(MEM.input$cluster), ]
+MEM.output = MEM(
+  MEM.input, 
+  transform = TRUE, 
+  cofactor = 6000,
+  choose.markers = FALSE,
+  markers = "all",
+  choose.ref = FALSE,
+  zero.ref = TRUE, 
+  rename.markers = FALSE,
+  new.marker.names = "none",
+  file.is.clust = FALSE,
+  add.fileID = FALSE,
+  IQR.thresh = NULL
+)
+
+build_heatmaps(
+  MEM.output, 
+  cluster.MEM = "none", 
+  cluster.medians = "none",
+  display.thresh = 1,
+  output.files = TRUE, 
+  labels = FALSE
+)
+```
+
+```{r count cells in each cluster}
+setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+TREX_counts(my.clusters, export = TRUE)
+```
+
+```{r marker heatmaps}  
+setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
 
 umap.bychannel <- as_tibble(umap.data) %>%
   bind_cols(transformed.data)  %>%
@@ -144,151 +212,129 @@ umap.bychannel <- as_tibble(umap.data) %>%
             legend.title=element_blank())) %>%
   plot_grid(plotlist = ., align = 'hv', ncol = 6)
 
-png(paste(strftime(Sys.time(),"%Y-%m-%d_%H%M%S"),"UMAP on transformed data.png"),height = 2000,width = 4000)
+png(
+  paste0(strftime(Sys.time(),"%Y-%m-%d_%H-%M"),"_marker_heat.png"),
+  height = 2000,
+  width = 4000
+)
 print(umap.bychannel)
 dev.off()
 ```
 
-```{r clustering}
-setwd(paste0(getwd(),"/data_files/rhinovirus/TREX_output"))
+```{r export FCS files}
+setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
 
-my.clusters = TREX_cluster(
-  my.binned, 
-  db.eps = 0.4,
-  marker.data = my.sampled.data[, c(8:12,14:18,21,25:29,31)]
-)
-
-TREX_cluster_plot(my.clusters, my.binned, embed.type = "UMAP")
+# export new FCS files with sampled data, percent change, and umap axes
+to.export = cbind(sampled.data, umap.data, percent.change = my.binned$percent.change)
+desc = colnames(to.export)
+desc <- desc[! desc %in% c("file_ID")]
+colnames(to.export)[1:ncol(sampled.data) - 1] <- orig.names
+sep.files = split(to.export, to.export$`file_ID`)
+for (i in 1:length(sep.files)) {
+  reduce.data = subset(sep.files[[i]], select = -c(`file_ID`))
+  mat.input<- as.matrix(reduce.data)
+  metadata <- data.frame(name = dimnames(mat.input)[[2]], desc = desc)
+  metadata$range <- apply(apply(mat.input, 2, range), 2, diff)
+  metadata$minRange <- apply(mat.input, 2, min)
+  metadata$maxRange <- apply(mat.input, 2, max)
+  input.flowframe <- new("flowFrame", exprs= mat.input, parameters = AnnotatedDataFrame(metadata))  
+  newname  = str_remove(data.filenames[i], ".fcs")
+  new.filename = paste0(strftime(Sys.time(), "%Y-%m-%d_%H-%M"), "_", newname,"_T-REX.fcs")
+  write.FCS(input.flowframe, filename = new.filename)
+  print(paste("FCS file ",i," done", sep = ""))
+}
 ```
 
-```{r MEM}
-setwd(paste0(getwd(),"/data_files/rhinovirus/TREX_output"))
+```{r tetra plot}
+setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
 
-# run MEM on DBSCAN-identified clusters from 5th and 95th percentiles 
-# exclude UMAP axes, percent.change, and TREX cuts columns
-MEM.input = my.clusters[, c(5:ncol(my.clusters))]
-MEM.input <- MEM.input[order(MEM.input$cluster), ]
-MEM.output = MEM(
-  MEM.input, 
-  transform = TRUE, 
-  cofactor = 6000,
-  # choose.markers = FALSE, 
-  # markers = "all", 
-  # choose.ref = FALSE, 
-  zero.ref = TRUE, 
-  # rename.markers = FALSE,
-  # new.marker.names = "none", 
-  # file.is.clust = FALSE, 
-  # add.fileID = FALSE, 
-  # IQR.thresh = NULL
+kvalue = 60
+
+pos.1 <- which(sampled.data$`Tetra1`>18000 & sampled.data$`Tetra2`<18000 & sampled.data$`Tetra3`<18000)
+pos.3 <- which(sampled.data$`Tetra1`<18000 & sampled.data$`Tetra2`<18000 & sampled.data$`Tetra3`>18000)
+pos.2 <- which(sampled.data$`Tetra1`<18000 & sampled.data$`Tetra2`>18000 & sampled.data$`Tetra3`<18000)
+tetrapos.cells = c(pos.1,pos.2,pos.3)
+
+neighbor_index = knnx.index(umap.data, umap.data, k = kvalue)
+tetra.pos.knn = which(matrix(neighbor_index %in% tetrapos.cells, dim(neighbor_index)), arr.ind = T) 
+neighbor_index[tetra.pos.knn] <- 1
+neighbor_index[neighbor_index != 1] <- 0
+total.tetra.count = (rowSums(neighbor_index)/kvalue*100)
+
+pdf(paste(strftime(Sys.time(),"%Y-%m-%d_%H-%M")," box and whisker 1 percent.pdf"), width = 5)
+```
+
+```{r tetra 1% binning all}
+setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+
+test.round = round(my.binned$percent.change)
+data.to.plot = as.data.frame(cbind(test.round, total.tetra.count))
+data.to.plot$test.round <- as.factor(data.to.plot$test.round)
+print(
+  ggplot(data.to.plot, aes(x = test.round, y = total.tetra.count)) + 
+  geom_boxplot(outlier.shape = NA, fill = "gray") + 
+  labs(
+    x = paste("% change in KNN region k=", kvalue), 
+    y = "% Tetramer+ in KNN region") +
+  theme_classic()
 )
+dev.off()
 
-build_heatmaps(
-  MEM.output, 
-  cluster.MEM = "none", 
-  # cluster.medians = "none",
-  # display.thresh = 1, 
-  output.files = TRUE, 
-  # labels = FALSE
+png(
+  paste(strftime(Sys.time(),"%Y-%m-%d_%H-%M")," UMAP_plot_percent_change_95.png"),
+  res = 200,
+  width = 1500,
+  height = 1500
+)
+```
+
+```{r tetra cont}
+setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+
+i = 5
+
+all.data$status <- 0
+indices.post.enriched = which(test.round >= 95)
+all.data[indices.post.enriched,]$status <- 1
+indices.post.enriched.tetra = which(data.to.plot$test.round >= 95 & data.to.plot$total.tetra.count >= i)
+all.data[indices.post.enriched.tetra,]$status <- 2
+cols <- c("0" = "lightgray", "1" = "darkred", "2" = "deeppink")
+all.data.ordered <- all.data[order(all.data$status),]
+plot.data <- data.frame(x = all.data.ordered$UMAP1, y = all.data.ordered$UMAP2, col = as.factor(all.data.ordered$status))
+
+clinical_clusters <- ggplot(plot) + 
+  geom_point(aes(x = all.data.ordered$UMAP1, y = all.data.ordered$UMAP2, col = as.factor(all.data.ordered$status))) +
+  scale_color_manual(
+    values = cols, 
+    labels = c("does not pass % change cutoff",
+              paste0("passes % change cutoff, tet- (",summary(as.factor(all.data.ordered$status))[2]," cells)"),
+              paste0("passes % change cutoff, tet+ (",summary(as.factor(all.data.ordered$status))[3]," cells)")), 
+    name = element_blank()) +
+  guides(colour = guide_legend(override.aes = list(size=5))) + 
+  theme_bw() + 
+  theme(
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank()) + 
+  labs(x = "UMAP1", y = "UMAP2", title = paste0("% change above 95, % tetra+ at ",i)) + 
+  coord_fixed(ratio = graphical.ratio)
+dev.off()
+print(clinical_clusters)
+
+png(
+  paste(strftime(Sys.time(),"%Y-%m-%d_%H-%M")," UMAP_plot_tet_change_95.png"),
+  res = 200,
+  width = 1500,
+  height = 1500
 )
 ```
 
 ```{r}
-all.clusters = split(track.data,as.factor(track.data$cluster))
-counts.total  <- sapply(all.clusters, NROW)
-counts.5<-vector()
-for (i in 1:length(all.clusters)){
-  counts.5[i] = sum(all.clusters[[i]][["status"]] == '[0,5]')}
-counts.95 = counts.total-counts.5
-cluster.data = as.data.frame(counts.total)
-colnames(cluster.data)<- "total_counts"
-cluster.data$counts_5<-counts.5
-cluster.data$counts_95<-counts.95
-write.csv(cluster.data,paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S")," DBSCAN_cluster_percentiles_counts_MEM.csv",sep =""))
-print(cluster.data)
-```
 
-
-```{r export_FCS_files}
-setwd(paste(getwd(),"/data_files/rhinovirus", sep = ""))
-
-# export new FCS files with sampled data, percent change, and umap axes
-to.export = cbind(my.sampled.data,umap.data,percent_change)
-desc = colnames(to.export)[-c((ncol(my.sampled.data)-1):ncol(my.sampled.data))]
-colnames(to.export)[1:ncol(my.sampled.data)]<-orig.names
-separate.fcs.files = split(to.export,to.export$`orig_ID`)
-for (i in 1:length(separate.fcs.files)){
-reduce.data = subset(separate.fcs.files[[i]], select=-c(`File_ID`,`orig_ID`))
-mat.input<- as.matrix(reduce.data)
-metadata <- data.frame(name = dimnames(mat.input)[[2]], desc = desc)
-metadata$range <- apply(apply(mat.input, 2, range), 2, diff)
-metadata$minRange <- apply(mat.input, 2, min)
-metadata$maxRange <- apply(mat.input, 2, max)
-input.flowframe <- new("flowFrame", exprs=mat.input,parameters = AnnotatedDataFrame(metadata))  
-newname  = str_remove(data.files[i], ".fcs")
-new.filename = paste0("./output files/",newname,"_T-REX.fcs",sep="")
-write.FCS(input.flowframe,filename = new.filename)
-print(paste("FCS file ",i," done", sep = ""))}
-
-# print session information
-sessionInfo()
-```
-
-
-```{r tetra plot}
-setwd(paste(getwd(),"/data_files/rhinovirus", sep = ""))
-
-kvalue = 60
-
-pos.1 <- which(my.sampled.data$`Tetra1`>18000 & my.sampled.data$`Tetra2`<18000 & my.sampled.data$`Tetra3`<18000)
-pos.3 <- which(my.sampled.data$`Tetra1`<18000 & my.sampled.data$`Tetra2`<18000 & my.sampled.data$`Tetra3`>18000)
-pos.2 <- which(my.sampled.data$`Tetra1`<18000 & my.sampled.data$`Tetra2`>18000 & my.sampled.data$`Tetra3`<18000)
-tetrapos.cells = c(pos.1,pos.2,pos.3)
-
-neighbor_index = knnx.index(umap.data,umap.data,k=kvalue)
-tetra.pos.knn = which(matrix(neighbor_index %in% tetrapos.cells, dim(neighbor_index)), arr.ind = T) 
-neighbor_index[tetra.pos.knn]<-1
-neighbor_index[neighbor_index != 1] <- 0
-total.tetra.count = (rowSums(neighbor_index)/kvalue*100)
-
-pdf(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S")," box and whisker 1 percent.pdf"),width=5)
-# 1% binning all 
-test.round = round(percent_change)
-data.to.plot = as.data.frame(cbind(test.round,total.tetra.count))
-data.to.plot$test.round<- as.factor(data.to.plot$test.round)
-print(ggplot(data.to.plot, aes(x = test.round, y = total.tetra.count)) + 
-  geom_boxplot(outlier.shape = NA, fill="gray")  + labs(x=paste("% change in KNN region k=",kvalue), y = "% Tetramer+ in KNN region")+ theme_classic())
-dev.off()
-
-i = 5
-  
-all.data$status <- 0
-data.to.plot = as.data.frame(cbind(test.round,total.tetra.count))
-
-png(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S")," UMAP_plot_percent_change_95.png") ,res = 200,
-  width = 1500,
-  height = 1500
-)
-all.data$status <- 0
-indices.post.enriched = which(test.round>=95)
-all.data[indices.post.enriched,]$status <- 1
-indices.post.enriched.tetra = which(data.to.plot$test.round>=95 & data.to.plot$total.tetra.count>=i)
-all.data[indices.post.enriched.tetra,]$status <- 2
-cols <- c("0" = "lightgray","1" = "darkred","2" = "deeppink")
-all.data.ordered <- all.data[order(all.data$status),]
-plot <- data.frame(x = all.data.ordered$UMAP1, y = all.data.ordered$UMAP2, col = as.factor(all.data.ordered$status))
-clinical_clusters <- ggplot(plot)+ geom_point(aes(x = all.data.ordered$UMAP1, y = all.data.ordered$UMAP2, col = as.factor(all.data.ordered$status))) + scale_color_manual(values = cols, labels = c("does not pass % change cutoff",paste0("passes % change cutoff, tet- (",summary(as.factor(all.data.ordered$status))[2]," cells)"), paste0("passes % change cutoff, tet+ (",summary(as.factor(all.data.ordered$status))[3]," cells)")), name = element_blank())+
-  guides(colour = guide_legend(override.aes = list(size=5)))+ theme_bw() + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + labs (x = "UMAP1", y = "UMAP2", title = paste0("% change above 95, % tetra+ at ",i)) + coord_fixed(ratio=graphical.ratio)
-print(clinical_clusters)
-dev.off()
-print(clinical_clusters)
-
-png(paste("./output files/",strftime(Sys.time(),"%Y-%m-%d_%H%M%S")," UMAP_plot_tet_change_95.png"),res = 200,
-  width = 1500,
-  height = 1500)
 all.data$status <- 0
 indices.post.enriched.tetra = which(data.to.plot$test.round>=95 & data.to.plot$total.tetra.count>=i)
 all.data[indices.post.enriched.tetra,]$status <- 2
+
+
 indices.tetra = which(data.to.plot$test.round<95 & data.to.plot$total.tetra.count>=i)
 all.data[indices.tetra,]$status <- 1
 cols <- c("0" = "lightgray", "1" = "purple", "2" = "deeppink")
