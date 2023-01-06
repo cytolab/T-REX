@@ -1,8 +1,8 @@
 ---
 title: "T-REX Analysis on RV 001"
 author: "Sierra Barone"
-contributors: "Claire Cross, and Cass Mayeda"
-date: "09/02/2021"
+contributors: "Claire Cross, Hannah Thirman, and Cass Mayeda"
+date: "1/5/2023"
 output:
   html_document:
     df_print: paged
@@ -189,12 +189,14 @@ build_heatmaps(
 
 ```{r count cells in each cluster}
 setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+
 TREX_counts(my.clusters, export = TRUE)
 ```
 
 ```{r marker heatmaps}  
 setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
 
+# create heatmaps of every marker across UMAP axes 
 umap.bychannel <- as_tibble(umap.data) %>%
   bind_cols(transformed.data)  %>%
   gather(channel, intensity, -UMAP1, -UMAP2) %>%
@@ -208,8 +210,15 @@ umap.bychannel <- as_tibble(umap.data) %>%
       facet_grid(~ channel, labeller = function(x) label_value(x, multi_line = FALSE)) +
       coord_fixed() +
       theme_bw() +
-      theme(strip.text.x = element_text(size = 20), 
-            legend.title=element_blank())) %>%
+      theme(
+        strip.text.x = element_text(size = 20),
+        legend.title = element_blank(),
+        panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank()
+      )
+    ) %>%
   plot_grid(plotlist = ., align = 'hv', ncol = 6)
 
 png(
@@ -245,16 +254,15 @@ for (i in 1:length(sep.files)) {
 }
 ```
 
-```{r tetra plot}
+```{r tetra box and whisker}
 setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
-
-kvalue = 60
 
 pos.1 <- which(sampled.data$`Tetra1`>18000 & sampled.data$`Tetra2`<18000 & sampled.data$`Tetra3`<18000)
 pos.3 <- which(sampled.data$`Tetra1`<18000 & sampled.data$`Tetra2`<18000 & sampled.data$`Tetra3`>18000)
 pos.2 <- which(sampled.data$`Tetra1`<18000 & sampled.data$`Tetra2`>18000 & sampled.data$`Tetra3`<18000)
 tetrapos.cells = c(pos.1,pos.2,pos.3)
 
+kvalue = 60
 neighbor_index = knnx.index(umap.data, umap.data, k = kvalue)
 tetra.pos.knn = which(matrix(neighbor_index %in% tetrapos.cells, dim(neighbor_index)), arr.ind = T) 
 neighbor_index[tetra.pos.knn] <- 1
@@ -262,16 +270,12 @@ neighbor_index[neighbor_index != 1] <- 0
 total.tetra.count = (rowSums(neighbor_index)/kvalue*100)
 
 pdf(paste(strftime(Sys.time(),"%Y-%m-%d_%H-%M")," box and whisker 1 percent.pdf"), width = 5)
-```
 
-```{r tetra 1% binning all}
-setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
-
-test.round = round(my.binned$percent.change)
-data.to.plot = as.data.frame(cbind(test.round, total.tetra.count))
-data.to.plot$test.round <- as.factor(data.to.plot$test.round)
+percent_change = round(my.binned$percent.change)
+data.to.plot = as.data.frame(cbind(percent_change, total.tetra.count))
+data.to.plot$percent_change <- as.factor(data.to.plot$percent_change)
 print(
-  ggplot(data.to.plot, aes(x = test.round, y = total.tetra.count)) + 
+  ggplot(data.to.plot, aes(x = percent_change, y = total.tetra.count)) + 
   geom_boxplot(outlier.shape = NA, fill = "gray") + 
   labs(
     x = paste("% change in KNN region k=", kvalue), 
@@ -279,6 +283,10 @@ print(
   theme_classic()
 )
 dev.off()
+```
+
+```{r tetra plot}
+setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
 
 png(
   paste(strftime(Sys.time(),"%Y-%m-%d_%H-%M")," UMAP_plot_percent_change_95.png"),
@@ -286,39 +294,48 @@ png(
   width = 1500,
   height = 1500
 )
-```
-
-```{r tetra cont}
-setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
 
 i = 5
+graphical.ratio = 1.178857
 
-all.data$status <- 0
-indices.post.enriched = which(test.round >= 95)
-all.data[indices.post.enriched,]$status <- 1
-indices.post.enriched.tetra = which(data.to.plot$test.round >= 95 & data.to.plot$total.tetra.count >= i)
-all.data[indices.post.enriched.tetra,]$status <- 2
-cols <- c("0" = "lightgray", "1" = "darkred", "2" = "deeppink")
-all.data.ordered <- all.data[order(all.data$status),]
-plot.data <- data.frame(x = all.data.ordered$UMAP1, y = all.data.ordered$UMAP2, col = as.factor(all.data.ordered$status))
+tetra.data = sampled.data
+tetra.data$status <- 0
+data.to.plot = as.data.frame(cbind(my.binned$percent.change, total.tetra.count))
+colnames(data.to.plot) <- c("percent.change", "total.tetra.count")
 
-clinical_clusters <- ggplot(plot) + 
-  geom_point(aes(x = all.data.ordered$UMAP1, y = all.data.ordered$UMAP2, col = as.factor(all.data.ordered$status))) +
+indices.post.enriched = which(data.to.plot$percent.change >= 95)
+tetra.data[indices.post.enriched, ]$status <- 1
+indices.post.enriched.tetra = which(data.to.plot$percent.change >= 95 & data.to.plot$total.tetra.count >= i)
+tetra.data[indices.post.enriched.tetra, ]$status <- 2
+tetra.data.ordered <- tetra.data[order(tetra.data$status), ]
+
+clinical_clusters <- ggplot(tetra.data.ordered, aes(x = UMAP1, y = UMAP2, col = as.factor(tetra.data.ordered$status))) +
+  geom_point() +
   scale_color_manual(
-    values = cols, 
+    values = c("0" = "lightgray", "1" = "darkred", "2" = "deeppink"), 
     labels = c("does not pass % change cutoff",
-              paste0("passes % change cutoff, tet- (",summary(as.factor(all.data.ordered$status))[2]," cells)"),
-              paste0("passes % change cutoff, tet+ (",summary(as.factor(all.data.ordered$status))[3]," cells)")), 
-    name = element_blank()) +
-  guides(colour = guide_legend(override.aes = list(size=5))) + 
+               paste0("passes % change cutoff, tet- (",summary(as.factor(tetra.data.ordered$status))[2]," cells)"), 
+               paste0("passes % change cutoff, tet+ (",summary(as.factor(tetra.data.ordered$status))[3]," cells)")), 
+    name = element_blank()
+  ) +
+  guides(colour = guide_legend(override.aes = list(size = 5))) + 
   theme_bw() + 
   theme(
     panel.grid.major = element_blank(), 
-    panel.grid.minor = element_blank()) + 
-  labs(x = "UMAP1", y = "UMAP2", title = paste0("% change above 95, % tetra+ at ",i)) + 
+    panel.grid.minor = element_blank()
+  ) + 
+  labs(
+    x = "UMAP1", 
+    y = "UMAP2", 
+    title = paste0("% change above 95, % tetra+ at ",i)
+  ) + 
   coord_fixed(ratio = graphical.ratio)
-dev.off()
+
 print(clinical_clusters)
+dev.off()
+```
+```{r tetra cont}
+setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
 
 png(
   paste(strftime(Sys.time(),"%Y-%m-%d_%H-%M")," UMAP_plot_tet_change_95.png"),
@@ -326,24 +343,33 @@ png(
   width = 1500,
   height = 1500
 )
-```
 
-```{r}
+tetra.data$status <- 0
+indices.post.enriched.tetra = which(data.to.plot$percent.change >= 95 & data.to.plot$total.tetra.count >= i)
+tetra.data[indices.post.enriched.tetra, ]$status <- 2
+indices.tetra = which(data.to.plot$percent.change < 95 & data.to.plot$total.tetra.count >= i)
+tetra.data[indices.tetra, ]$status <- 1
+tetra.data.ordered <- tetra.data[order(tetra.data$status), ]
 
-all.data$status <- 0
-indices.post.enriched.tetra = which(data.to.plot$test.round>=95 & data.to.plot$total.tetra.count>=i)
-all.data[indices.post.enriched.tetra,]$status <- 2
+clinical_clusters <- ggplot(tetra.data.ordered, aes(x = UMAP1, y = UMAP2, col = as.factor(tetra.data.ordered$status))) + 
+  geom_point() + 
+  scale_color_manual(
+    values = c("0" = "lightgray", "1" = "purple", "2" = "deeppink"),
+    labels = c("tet-",
+               paste0("does not pass % change cutoff, tet+ (",summary(as.factor(tetra.data.ordered$status))[2]," cells)"),
+               paste0("passes % change cutoff, tet+ (",summary(as.factor(tetra.data.ordered$status))[3]," cells)")), 
+    name = element_blank()
+  ) + 
+  theme_bw() +
+  guides(colour = guide_legend(override.aes = list(size=5))) + 
+  theme_bw() + 
+  theme(
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank()
+  ) + 
+  labs (x = "UMAP1", y = "UMAP2", title = paste0("% change at 95, % tetra+ at ",i)) + 
+  coord_fixed(ratio = graphical.ratio)
 
-
-indices.tetra = which(data.to.plot$test.round<95 & data.to.plot$total.tetra.count>=i)
-all.data[indices.tetra,]$status <- 1
-cols <- c("0" = "lightgray", "1" = "purple", "2" = "deeppink")
-all.data.ordered <- all.data[order(all.data$status),]
-plot <- data.frame(x = all.data.ordered$UMAP1, y = all.data.ordered$UMAP2, col = as.factor(all.data.ordered$status))
-clinical_clusters <- ggplot(plot)+ geom_point(aes(x = all.data.ordered$UMAP1, y = all.data.ordered$UMAP2, col = as.factor(all.data.ordered$status))) + scale_color_manual(values = cols,labels = c("tet-",paste0("does not pass % change cutoff, tet+ (",summary(as.factor(all.data.ordered$status))[2]," cells)"),paste0("passes % change cutoff, tet+ (",summary(as.factor(all.data.ordered$status))[3]," cells)")), name = element_blank())+ theme_bw() +
-  guides(colour = guide_legend(override.aes = list(size=5)))+ theme_bw() + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ labs (x = "UMAP1", y = "UMAP2", title = paste0("% change at 95, % tetra+ at ",i)) + coord_fixed(ratio=graphical.ratio)
 print(clinical_clusters)
 dev.off()
-print(clinical_clusters)
-
 ```
