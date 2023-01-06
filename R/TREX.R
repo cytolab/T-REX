@@ -13,6 +13,10 @@ TREX <- function(embedding.data,
                  ) {
   
   # warnings for improperly formatted data 
+  if (is.na(match("file_ID", colnames(embedding.data)))) { 
+    stop("Embedding.data has no column named file_ID.")
+  }
+  
   data.name = unique(embedding.data$file_ID)[1]
   if (length(which(embedding.data$file_ID == data.name)) != nrow(embedding.data)/2) {
     stop("Datasets are not equally sampled according to file_ID.")
