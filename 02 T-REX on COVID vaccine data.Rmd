@@ -222,6 +222,13 @@ setwd(paste0(getwd(),"/data_files/covid vaccine/",output.folder))
 
 # export new FCS files with sampled data, percent change, and tsne axes
 to.export = cbind(sampled.data, tsne.data, percent.change = my.binned$percent.change)
+
+# add column for cluster number 
+to.export$cluster <- c(0)
+bins.of.interest = unique(my.clusters$cuts)
+temp.cuts = wafflecut(to.export$percent.change, levels(my.binned$cuts))
+to.export[temp.cuts %in% bins.of.interest, ]$cluster <- my.clusters$cluster
+
 desc = colnames(to.export)
 desc <- desc[! desc %in% c("file_ID")]
 colnames(to.export)[1:ncol(sampled.data) - 1] <- orig.names
