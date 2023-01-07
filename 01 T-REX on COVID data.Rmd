@@ -129,7 +129,7 @@ TREX_plot(
 ```
 
 ```{r calculate degree and direction of change}
-setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+setwd(paste0(getwd(),"/data_files/brodin covid/",output.folder))
 
 TREX_results(my.binned, export = TRUE)
 ```
@@ -152,7 +152,7 @@ TREX_cluster_plot(
 ```
 
 ```{r cluster mean % change}
-setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+setwd(paste0(getwd(),"/data_files/brodin covid/",output.folder))
 TREX_cluster_results(my.clusters, export = TRUE)
 ```
 

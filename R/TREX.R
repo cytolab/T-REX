@@ -60,9 +60,9 @@ TREX <- function(embedding.data,
     x = embedding.data[, 1],
     y = embedding.data[, 2],
     file_ID = embedding.data$file_ID,
-    percent.change = round(percent.change)
+    percent.change = percent.change
   )
-  binned.data$cuts <- wafflecut(binned.data$percent.change, bins)
+  binned.data$cuts <- wafflecut(round(binned.data$percent.change), bins)
 
   return(binned.data)
 }
