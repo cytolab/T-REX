@@ -2,7 +2,7 @@
 title: "T-REX Analysis on COVID Data"
 author: "Sierra Barone"
 contributors: "Claire Cross, Hannah Thirman, and Cass Mayeda"
-date: "09/02/2022"
+date: "11/23/2022"
 output:
   html_document:
     df_print: paged
@@ -18,28 +18,30 @@ knitr::opts_chunk$set(echo = TRUE)
 # Data from Brodin lab in Rodriguez et al., Cell Rep Med. 2020 (https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7405891/)
 
 # uncomment lines below to install packages
-# if (!require("BiocManager", quietly = TRUE))
-#    install.packages("BiocManager")
-# BiocManager::install("cytoMEM")
 # install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 # install.packages("ggplot2", repos = "http://cran.us.r-project.org")
 # install.packages("FNN", repos = "http://cran.us.r-project.org")
-# install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 # install.packages("uwot", repos = "http://cran.us.r-project.org")
 # install.packages("dbscan", repos = "http://cran.us.r-project.org")
-# if (!requireNamespace("BiocManager", quietly = TRUE))
+# install.packages("fancycut", repos = "http://cran.us.r-project.org")
+# install.packages("gridExtra", repos = "http://cran.us.r-project.org")
+# if (!require("BiocManager", quietly = TRUE))
 #    install.packages("BiocManager")
+# BiocManager::install("cytoMEM")
 # BiocManager::install("flowCore")
 # BiocManager::install("Biobase")
 
 # load packages
 library(flowCore)
 library(uwot)
+library(ggplot2)
+library(RColorBrewer)
 library(cytoMEM)
 library(tidyverse)
 library(Biobase)
 library(dplyr)
 library(purrr)
+library(cowplot)
 
 # load T-REX functions from local folder 
 source("R/TREX.R")
@@ -58,33 +60,30 @@ second.dataset = as.data.frame(lapply(lapply(data.filenames[[2]], read.FCS), exp
 # save original column names for final export to FCS files 
 orig.names = colnames(first.dataset)
 
+# rename columns with marker names 
+colnames(first.dataset)[1:(length(first.dataset) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
+colnames(second.dataset)[1:(length(second.dataset) - 2)] <- as.character(read.FCS(data.filenames[[2]])@parameters@data[["desc"]])
+
 # create meaningful names for data sets to be analyzed 
 first.dataset$file_ID = "Timepoint 1"
 second.dataset$file_ID = "Timepoint 2"
-
-# rename columns with simplified marker names 
-colnames(first.dataset)[1:(length(first.dataset) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
-colnames(second.dataset)[1:(length(second.dataset) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
 ```
 
 ```{r equal sampling}
-setwd(paste0(getwd(),"/data_files/brodin covid"))
-
-# find number of datapoints in smaller sample 
+# find number of data points in smaller sample 
 smaller_sample = nrow(first.dataset) 
 if (nrow(second.dataset) < smaller_sample) { 
   smaller_sample <- nrow(second.dataset) 
 }
 
-# get an equal number of datapoints from both datasets
+# set a seed to get a reproducible sample 
 set.seed(1)
+
+# get an equal number of data points from both data sets
 sampled.data = as.data.frame(rbind(
   first.dataset[sample(nrow(first.dataset), smaller_sample), ], 
   second.dataset[sample(nrow(second.dataset), smaller_sample), ]
 ))
-
-# rename columns with simplified marker names 
-colnames(sampled.data)[1:(length(sampled.data) - 2)] <- as.character(read.FCS(data.filenames[[1]])@parameters@data[["desc"]])
 ```
 
 ```{r choose markers, scale data}
@@ -98,24 +97,24 @@ transformed.data = asinh(chosen.data/5)
 ```{r create output folder}
 dataset.names = unique(sampled.data$file_ID)
 output.folder = paste0("T-REX output, ", dataset.names[1], " vs ", dataset.names[2])
-dir.create(paste0(getwd(), "/data_files/brodin covid/", output.folder))
+dir.create(paste0(getwd(), "/data_files/brodin covid/",output.folder))
 ```
 
 ```{r UMAP}
-setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+setwd(paste0(getwd(),"/data_files/brodin covid/",output.folder))
 
 # create UMAP (low dimensional embedding)
 myumap <- umap(transformed.data, ret_model = TRUE, verbose = TRUE)
 
 # uncomment the line below to save the UMAP 
-save_uwot(myumap, paste0(getwd(), "/", strftime(Sys.time(),"%Y-%m-%d_%H_%M"),"_umap_results"))
+# save_uwot(myumap, paste0(getwd(), "/", strftime(Sys.time(),"%Y-%m-%d_%H_%M"),"_umap_results"))
 
 umap.data = as.data.frame(myumap$embedding)
 colnames(umap.data) <- c("UMAP1", "UMAP2")
 ```
 
-```{r TREX}
-setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+```{r run TREX}
+setwd(paste0(getwd(),"/data_files/brodin covid/",output.folder))
 
 my.binned <- TREX(
   embedding.data = cbind(umap.data, file_ID = sampled.data$file_ID),
@@ -130,7 +129,8 @@ TREX_plot(
 ```
 
 ```{r calculate degree and direction of change}
-setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+setwd(paste0(getwd(),"/data_files/brodin covid/",output.folder))
+
 TREX_results(my.binned, export = TRUE)
 ```
 
@@ -152,11 +152,47 @@ TREX_cluster_plot(
 ```
 
 ```{r cluster mean % change}
-setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+setwd(paste0(getwd(),"/data_files/brodin covid/",output.folder))
 TREX_cluster_results(my.clusters, export = TRUE)
 ```
 
+```{r MEM}
+setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
 
+# run MEM on DBSCAN clusters from 5th and 95th percentiles
+MEM.input = my.clusters[, c(6:ncol(my.clusters))]
+MEM.input <- MEM.input[order(MEM.input$cluster), ]
+MEM.output = MEM(
+  MEM.input, 
+  transform = TRUE, 
+  cofactor = 5,
+  choose.markers = FALSE, 
+  markers = "all", 
+  choose.ref = FALSE, 
+  zero.ref = TRUE, 
+  rename.markers = FALSE,
+  new.marker.names = "none", 
+  file.is.clust = FALSE, 
+  add.fileID = FALSE, 
+  IQR.thresh = NULL,
+  scale.matrix = "arcsinh",
+  scale.factor = 1
+)
+build_heatmaps(
+  MEM.output, 
+  cluster.MEM = "none", 
+  cluster.medians = "none",
+  display.thresh = 1, 
+  output.files = TRUE, 
+  labels = FALSE
+)
+```
+
+``` {r count cells in each cluster}
+setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+
+TREX_counts(my.clusters, export = TRUE)
+```
 ```{r marker heatmaps}  
 setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
 
@@ -183,10 +219,10 @@ umap.bychannel <- as_tibble(umap.data) %>%
         axis.ticks = element_blank()
       )
     ) %>%
-plot_grid(plotlist = ., align = 'hv', ncol = 8)
+  plot_grid(plotlist = ., align = 'hv', ncol = 8)
 
 png(
-  paste0(strftime(Sys.time(),"%Y-%m-%d_%H_%M"), "_marker_heat.png"),
+  paste0(strftime(Sys.time(),"%Y-%m-%d_%H-%M"), "_marker_heat.png"),
   height = 2000,
   width = 4000
 )
@@ -194,49 +230,18 @@ print(umap.bychannel)
 dev.off()
 ```
 
-```{r MEM}
-setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
-
-# run MEM on DBSCAN clusters 
-MEM.input = my.clusters[, c(6:ncol(my.clusters))]
-MEM.input <- MEM.input[order(MEM.input$cluster), ]
-MEM.values.KNN = MEM(
-  MEM.input, 
-  transform = TRUE, 
-  cofactor = 5,
-  choose.markers = FALSE, 
-  markers = "all", 
-  choose.ref = FALSE, 
-  zero.ref = TRUE, 
-  rename.markers = FALSE,
-  new.marker.names = "none", 
-  file.is.clust = FALSE, 
-  add.fileID = FALSE, 
-  IQR.thresh = NULL,
-  scale.matrix = "arcsinh",
-  scale.factor = 1
-)
-build_heatmaps(
-  MEM.values.KNN, 
-  cluster.MEM = "none", 
-  cluster.medians = "none",
-  display.thresh = 1, 
-  output.files = TRUE, 
-  labels = FALSE
-)
-```
-
-``` {r count cells in each cluster}
-setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
-
-TREX_counts(my.clusters, export = TRUE)
-```
-
-```{r export_FCS_files}
-setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+```{r export FCS files}
+setwd(paste0(getwd(),"/data_files/brodin covid/",output.folder))
 
 # export new FCS files with sampled data, percent change, and umap axes
 to.export = cbind(sampled.data, umap.data, percent.change = my.binned$percent.change)
+
+# add column for cluster number 
+to.export$cluster <- c(0)
+bins.of.interest = unique(my.clusters$cuts)
+temp.cuts = wafflecut(to.export$percent.change, levels(my.binned$cuts))
+to.export[temp.cuts %in% bins.of.interest, ]$cluster <- my.clusters$cluster
+
 desc = colnames(to.export)
 desc <- desc[! desc %in% c("file_ID")]
 colnames(to.export)[1:ncol(sampled.data) - 1] <- orig.names
@@ -250,8 +255,8 @@ for (i in 1:length(sep.files)) {
   metadata$maxRange <- apply(mat.input, 2, max)
   input.flowframe <- new("flowFrame", exprs = mat.input, parameters = AnnotatedDataFrame(metadata))
   newname  = str_remove(data.filenames[i], ".fcs")
-  new.filename = paste0(strftime(Sys.time(), "%Y-%m-%d_%H%M"), "_", newname, "_T-REX.fcs")
-  write.FCS(input.flowframe,filename = new.filename)
+  new.filename = paste0(strftime(Sys.time(), "%Y-%m-%d_%H-%M"), "_", newname, "_T-REX.fcs")
+  write.FCS(input.flowframe, filename = new.filename)
   print(paste("FCS file ",i," done", sep = ""))
 }
 ```

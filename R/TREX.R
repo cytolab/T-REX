@@ -6,6 +6,7 @@ library(gridExtra)
 library(cowplot)
 
 source("R/themes_and_palettes.R")
+source("R/TREX_helpers.R")
 
 TREX <- function(embedding.data,                   
                  kvalue = 60,                       
@@ -13,33 +14,27 @@ TREX <- function(embedding.data,
                  ) {
   
   # warnings for improperly formatted data 
+  if (is.na(match("file_ID", colnames(embedding.data)))) {
+    stop("Embedding.data has no column named file_ID.")
+  }
+
   data.name = unique(embedding.data$file_ID)[1]
   if (length(which(embedding.data$file_ID == data.name)) != nrow(embedding.data)/2) {
     stop("Datasets are not equally sampled according to file_ID.")
   }
   
-  # create # of bins from integer 
+  # create bins vector if given integer or % 
   if (is.numeric(bins)) {
-    bin.size = round(100/bins, digits = 1)
-    new.bins = vector("character", bins)
-    start.b = "("
-    end.b = "]"
-    new.bins[1] <- paste0("[0," , bin.size, "]")
-    for(i in 1:(bins - 1)) {
-      if(i == (bins - 1)) {
-        new.bins[bins] <- paste0("[", i*bin.size, ",100]")
-      } else if(i == floor(bins/2)) {
-        new.bins[floor(bins/2) + 1] <- paste0("(", i*bin.size, ",", (i*bin.size + bin.size), ")")
-        start.b <- "["
-        end.b <- ")"
-      } else {
-        new.bins[i + 1] <- paste0(start.b, i*bin.size, ",", (i*bin.size + bin.size), end.b)
+    bins <- get_TREX_bins(round(100/bins, digits = 1))
+  } else if(is.character(bins) & length(bins) == 1) {
+    if(grepl("%", bins)) { 
+      bin.size = as.numeric(substr(bins, start = 1, stop = nchar(bins) - 1))
+      if (bin.size > 30) {
+        stop("Cannot have less than three bins.")
       }
-    } 
-    bins <- new.bins
-  }  
-  
-  # create bins of a given % 
+      bins <- get_TREX_bins(bin.size)
+    }
+  }
   
   # KNN search per cell 
   neighbor.index = knnx.index(embedding.data[, 1:2], embedding.data[, 1:2], k = kvalue)
@@ -56,10 +51,10 @@ TREX <- function(embedding.data,
     x = embedding.data[, 1],
     y = embedding.data[, 2],
     file_ID = embedding.data$file_ID,
-    percent.change = round(percent.change)
+    percent.change = percent.change
   )
-  binned.data$cuts <- wafflecut(binned.data$percent.change, bins)
-
+  binned.data$cuts <- wafflecut(round(binned.data$percent.change), bins)
+  
   return(binned.data)
 }
 
@@ -68,6 +63,7 @@ TREX_plot <- function(binned.data,
                       embed.type = "Embedding",
                       percent.labels = TRUE,
                       caption = NULL,
+                      return.obj = "drawn plot",
                       export = FALSE) {
 
   # get dataset names from file_ID column 
@@ -139,7 +135,7 @@ TREX_plot <- function(binned.data,
              gp = gpar(col = "#8B0000"))
   )
   trex.titled <- arrangeGrob(trex.plot, top = titleGrobs, padding = unit(2.6, "line"))
-
+  
   if (export) {
     ggsave(
       paste0(
@@ -153,7 +149,16 @@ TREX_plot <- function(binned.data,
     )
   }
   
-  return(ggdraw(trex.titled))
+  if (return.obj == "drawn plot") { 
+    return(ggdraw(trex.titled))
+  } else if (return.obj == "ggplot") {
+    return(trex.plot)
+  } else if (return.obj == "gtable") {
+    return(trex.titled)
+  } else {
+    stop("uninterpretable input for return.obj")
+  }
+  
 }
 
 TREX_results <- function(binned.data, 
