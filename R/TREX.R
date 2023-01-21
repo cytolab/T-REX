@@ -63,6 +63,7 @@ TREX_plot <- function(binned.data,
                       embed.type = "Embedding",
                       percent.labels = TRUE,
                       caption = NULL,
+                      return.obj = "drawn plot",
                       export = FALSE) {
 
   # get dataset names from file_ID column 
@@ -148,7 +149,14 @@ TREX_plot <- function(binned.data,
     )
   }
   
-  return(ggdraw(trex.titled))
+  if (return.obj == "drawn plot") { 
+    return(ggdraw(trex.titled))
+  } else if (return.obj == "ggplot") {
+    return(trex.plot)
+  } else if (return.obj == "gtable") {
+    return(trex.titled)
+  }
+  
 }
 
 TREX_results <- function(binned.data, 
