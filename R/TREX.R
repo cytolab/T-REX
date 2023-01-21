@@ -28,11 +28,11 @@ TREX <- function(embedding.data,
     bins <- get_TREX_bins(round(100/bins, digits = 1))
   } else if(is.character(bins) & length(bins) == 1) {
     if(grepl("%", bins)) { 
-      n_bins = as.numeric(substr(bins, start = 1, stop = nchar(bins) - 1))
-      if (n_bins > 30) {
+      bin.size = as.numeric(substr(bins, start = 1, stop = nchar(bins) - 1))
+      if (bin.size > 30) {
         stop("Cannot have less than three bins.")
       }
-      bins <- get_TREX_bins(n_bins)
+      bins <- get_TREX_bins(bin.size)
     }
   }
   
@@ -155,6 +155,8 @@ TREX_plot <- function(binned.data,
     return(trex.plot)
   } else if (return.obj == "gtable") {
     return(trex.titled)
+  } else {
+    stop("uninterpretable input for return.obj")
   }
   
 }
