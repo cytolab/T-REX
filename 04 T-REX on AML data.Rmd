@@ -127,6 +127,8 @@ TREX_plot(
   caption = "Data from Ferrell et al., PLOS One. 2016",
   export = TRUE
 )
+
+# The plot title will be incorrectly placed on the image below, but correctly placed on the exported png. The location is based on aspect ratio of the image, and can be adjusted with a title.height parameter if needed. 
 ```
 ```{r calculate degree and direction of change}
 setwd(output.folder)
