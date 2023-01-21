@@ -1,8 +1,8 @@
 ---
 title: "T-REX Analysis on COVID Vaccine Data"
-author: "Sierra Barone"
-contributors: "Claire Cross, Hannah Thirman, and Cass Mayeda"
-date: "12/1/2022"
+authors: "Sierra Barone, Jonathan Irish, Cass Mayeda"
+contributors: "Claire Cross, and Hannah Thirman"
+date: "1/20/2023"
 output:
   html_document:
     df_print: paged
