@@ -50,7 +50,7 @@ source("R/TREX_clusters.R")
 ```
 
 ```{r read in files}
-# set working directory 
+# set working directory to location of files 
 setwd(paste(getwd(),"/data_files/rhinovirus", sep = ""))
 
 # read in files 
@@ -97,12 +97,12 @@ transformed.data = as.data.frame(t(apply(chosen.data, 1, function(x) asinh(x/600
 
 ```{r create output folder}
 dataset.names = unique(sampled.data$file_ID)
-output.folder = paste0("T-REX output, ", dataset.names[1], " vs ", dataset.names[2])
-dir.create(paste0(getwd(), "/data_files/rhinovirus/", output.folder))
+output.folder = paste0(getwd(), "/data_files/rhinovirus/T-REX output, ", dataset.names[1], " vs ", dataset.names[2])
+dir.create(output.folder)
 ```
 
 ```{r UMAP}
-setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+setwd(output.folder)
 
 # select markers to make low dimensional embedding
 # umap.input = transformed.data[, c(1:5,7:13,16:17)]
@@ -117,7 +117,7 @@ colnames(umap.data) <- c("UMAP1", "UMAP2")
 ```
 
 ```{r run TREX}
-setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+setwd(output.folder)
 
 my.binned = TREX(cbind(umap.data, file_ID = sampled.data$file_ID))
 
@@ -129,12 +129,12 @@ TREX_plot(
 )
 ```
 ```{r calculate degree and direction of change}
-setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+setwd(output.folder)
 TREX_results(my.binned, export = TRUE)
 ```
 
 ```{r clustering}
-setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+setwd(output.folder)
 
 my.clusters = TREX_cluster(
   binned.data = my.binned, 
@@ -151,13 +151,13 @@ TREX_cluster_plot(
 ```
 
 ```{r cluster mean % change}
-setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+setwd(output.folder)
 TREX_cluster_results(my.clusters, export = TRUE)
 ```
 
 
 ```{r MEM}
-setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+setwd(output.folder)
 
 # run MEM on DBSCAN clusters from 5th and 95th percentiles 
 MEM.input = my.clusters[, c(6:ncol(my.clusters))]
@@ -188,13 +188,13 @@ build_heatmaps(
 ```
 
 ```{r count cells in each cluster}
-setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+setwd(output.folder)
 
 TREX_counts(my.clusters, export = TRUE)
 ```
 
 ```{r marker heatmaps}  
-setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+setwd(output.folder)
 
 # create heatmaps of every marker across UMAP axes 
 umap.bychannel <- as_tibble(umap.data) %>%
@@ -231,7 +231,7 @@ dev.off()
 ```
 
 ```{r export FCS files}
-setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+setwd(output.folder)
 
 # export new FCS files with sampled data, percent change, and umap axes
 to.export = cbind(sampled.data, umap.data, percent.change = my.binned$percent.change)
@@ -262,7 +262,7 @@ for (i in 1:length(sep.files)) {
 ```
 
 ```{r tetra box and whisker}
-setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+setwd(output.folder)
 
 pos.1 <- which(sampled.data$`Tetra1`>18000 & sampled.data$`Tetra2`<18000 & sampled.data$`Tetra3`<18000)
 pos.3 <- which(sampled.data$`Tetra1`<18000 & sampled.data$`Tetra2`<18000 & sampled.data$`Tetra3`>18000)
@@ -293,7 +293,7 @@ dev.off()
 ```
 
 ```{r tetra plot}
-setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+setwd(output.folder)
 
 png(
   paste(strftime(Sys.time(),"%Y-%m-%d_%H-%M")," UMAP_plot_percent_change_95.png"),
@@ -342,7 +342,7 @@ print(clinical_clusters)
 dev.off()
 ```
 ```{r tetra cont}
-setwd(paste0(getwd(),"/data_files/rhinovirus/",output.folder))
+setwd(output.folder)
 
 png(
   paste(strftime(Sys.time(),"%Y-%m-%d_%H-%M")," UMAP_plot_tet_change_95.png"),
