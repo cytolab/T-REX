@@ -13,6 +13,9 @@ TREX <- function(embedding.data,
                  bins = c('[0,5]','(5,15]','(15,85)','[85,95)','[95,100]')           
                  ) {
   
+  # 'bins' here refers to groups created by T-REX based on % change. 
+  # This variable controls the red and blue areas on the plot. 
+  
   # warnings for improperly formatted data 
   if (is.na(match("file_ID", colnames(embedding.data)))) {
     stop("Embedding.data has no column named file_ID.")

@@ -1,0 +1,15 @@
+Sierra Barone Lima is the creator of the T-REX analysis pipeline, and original author of the code. 
+
+Jonathan Irish conceptualized the pipeline with Sierra, oversaw project development, 
+and contributed to the original code. 
+
+Cass Mayeda refactored the pipeline, integrated contributions from Claire Cross
+and Hannah Thirman, and made minor useability improvements.  
+
+Claire Cross developed a new method for binning that made T-REX analysis identical in 
+the case the file order is switched. 
+
+Hannah Thirman contributed code to color the plot titles blue and red
+to match the identified populations. 
+
+Updated 1/31/2023 

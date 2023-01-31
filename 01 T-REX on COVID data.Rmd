@@ -1,8 +1,8 @@
 ---
 title: "T-REX Analysis on COVID Data"
-author: "Sierra Barone"
-contributors: "Claire Cross, Hannah Thirman, and Cass Mayeda"
-date: "11/23/2022"
+authors: "Sierra Barone, Jonathan Irish, Cass Mayeda"
+contributors: "Claire Cross, and Hannah Thirman"
+date: "1/20/2023"
 output:
   html_document:
     df_print: paged
@@ -49,7 +49,7 @@ source("R/TREX_clusters.R")
 ```
 
 ```{r read in files}
-# set working directory 
+# set working directory to location of files 
 setwd(paste0(getwd(),"/data_files/brodin covid"))
 
 # read in files 
@@ -96,12 +96,12 @@ transformed.data = asinh(chosen.data/5)
 
 ```{r create output folder}
 dataset.names = unique(sampled.data$file_ID)
-output.folder = paste0("T-REX output, ", dataset.names[1], " vs ", dataset.names[2])
-dir.create(paste0(getwd(), "/data_files/brodin covid/",output.folder))
+output.folder = paste0(getwd(), "/data_files/brodin covid/T-REX output, ", dataset.names[1], " vs ", dataset.names[2])
+dir.create(output.folder)
 ```
 
 ```{r UMAP}
-setwd(paste0(getwd(),"/data_files/brodin covid/",output.folder))
+setwd(output.folder)
 
 # create UMAP (low dimensional embedding)
 myumap <- umap(transformed.data, ret_model = TRUE, verbose = TRUE)
@@ -114,7 +114,7 @@ colnames(umap.data) <- c("UMAP1", "UMAP2")
 ```
 
 ```{r run TREX}
-setwd(paste0(getwd(),"/data_files/brodin covid/",output.folder))
+setwd(output.folder)
 
 my.binned <- TREX(
   embedding.data = cbind(umap.data, file_ID = sampled.data$file_ID),
@@ -126,16 +126,18 @@ TREX_plot(
   caption = "Data from Brodin lab in Rodriguez et al., Cell Rep Med. 2020",
   export = TRUE
 )
+
+# The plot title will be incorrectly placed on the image below, but correctly placed on the exported png. The location is based on aspect ratio of the image, and can be adjusted with a title.height parameter if needed. 
 ```
 
 ```{r calculate degree and direction of change}
-setwd(paste0(getwd(),"/data_files/brodin covid/",output.folder))
+setwd(output.folder)
 
 TREX_results(my.binned, export = TRUE)
 ```
 
 ```{r clustering}
-setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+setwd(output.folder)
 
 my.clusters = TREX_cluster(
   binned.data = my.binned, 
@@ -152,12 +154,12 @@ TREX_cluster_plot(
 ```
 
 ```{r cluster mean % change}
-setwd(paste0(getwd(),"/data_files/brodin covid/",output.folder))
+setwd(output.folder)
 TREX_cluster_results(my.clusters, export = TRUE)
 ```
 
 ```{r MEM}
-setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+setwd(output.folder)
 
 # run MEM on DBSCAN clusters from 5th and 95th percentiles
 MEM.input = my.clusters[, c(6:ncol(my.clusters))]
@@ -189,12 +191,12 @@ build_heatmaps(
 ```
 
 ``` {r count cells in each cluster}
-setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+setwd(output.folder)
 
 TREX_counts(my.clusters, export = TRUE)
 ```
 ```{r marker heatmaps}  
-setwd(paste0(getwd(),"/data_files/brodin covid/", output.folder))
+setwd(output.folder)
 
 # create heatmaps of every marker across UMAP axes 
 umap.bychannel <- as_tibble(umap.data) %>%
@@ -231,7 +233,7 @@ dev.off()
 ```
 
 ```{r export FCS files}
-setwd(paste0(getwd(),"/data_files/brodin covid/",output.folder))
+setwd(output.folder)
 
 # export new FCS files with sampled data, percent change, and umap axes
 to.export = cbind(sampled.data, umap.data, percent.change = my.binned$percent.change)
