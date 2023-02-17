@@ -182,7 +182,7 @@ setwd(output.folder)
 TREX_counts(my.clusters, export = TRUE)
 ```
 
-```{r marker heatmaps }  
+```{r marker heatmaps}  
 setwd(output.folder)
 
 tsne.bychannel <- as_tibble(tsne.data) %>%
@@ -210,7 +210,7 @@ tsne.bychannel <- as_tibble(tsne.data) %>%
   plot_grid(plotlist = ., align = 'hv', ncol = 8)
 
 png(
-  paste(output.folder,strftime(Sys.time(),"%Y-%m-%d_%H-%M"),"_marker_heat.png"),
+  paste(strftime(Sys.time(),"%Y-%m-%d_%H-%M"),"_marker_heat.png"),
   height = 2000,
   width = 4000
 )
